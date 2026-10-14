@@ -1,0 +1,2459 @@
+-- ============================================
+-- ⚡ ZABr0om v86544.3 - LAMP SKY EDITION ⚡
+-- By ZABco0l
+-- 15 Rotating Sky Lamps + All Features
+-- ============================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+local TeleportService = game:GetService("TeleportService")
+
+local LP = Players.LocalPlayer
+local VERSION = "86544.3"
+local AUTHOR = "ZABco0l"
+
+-- ============================================
+-- 🔧 UTIL
+-- ============================================
+local function getSafeParent()
+    local ok, hui = pcall(function() return gethui() end)
+    if ok and hui then return hui end
+    local ok2, cg = pcall(function() return game:GetService("CoreGui") end)
+    if ok2 and cg then return cg end
+    return LP:WaitForChild("PlayerGui")
+end
+
+local function safe(fn, ...)
+    local ok, res = pcall(fn, ...)
+    if not ok then warn("[ZABco0l] " .. tostring(res)) end
+    return ok, res
+end
+
+local function lev(a, b)
+    a, b = a:lower(), b:lower()
+    if a == b then return 0 end
+    if #a == 0 then return #b end
+    if #b == 0 then return #a end
+    local m = {}
+    for i = 0, #a do m[i] = {[0] = i} end
+    for j = 0, #b do m[0][j] = j end
+    for i = 1, #a do
+        for j = 1, #b do
+            local c = (a:sub(i,i) == b:sub(j,j)) and 0 or 1
+            m[i][j] = math.min(m[i-1][j]+1, m[i][j-1]+1, m[i-1][j-1]+c)
+        end
+    end
+    return m[#a][#b]
+end
+
+safe(function()
+    local p = getSafeParent()
+    local old = p:FindFirstChild("ZABr0om_UI")
+    if old then old:Destroy() end
+    for _, n in ipairs({"ZABr0om_Sounds", "ZABr0om_Anchor", "ZABco0l_Aura", "ZABco0l_Server", "ZABco0l_Lamps"}) do
+        local f = Workspace:FindFirstChild(n)
+        if f then f:Destroy() end
+    end
+end)
+
+local GuiParent = getSafeParent()
+
+-- ============================================
+-- 📏 AUTO SCALE
+-- ============================================
+local viewport = workspace.CurrentCamera.ViewportSize
+local isMobile = UIS.TouchEnabled and not UIS.MouseEnabled
+local baseW, baseH = 480, 1080
+local scale = 1
+
+if isMobile then
+    local maxW = viewport.X * 0.94
+    local maxH = viewport.Y * 0.92
+    scale = math.min(maxW / baseW, maxH / baseH, 1.15)
+else
+    if viewport.Y < 950 then
+        scale = viewport.Y / 1050
+    else
+        scale = math.min(viewport.Y / 900, 1.35)
+    end
+end
+
+local PANEL_W = math.floor(baseW * scale)
+local PANEL_H = math.floor(baseH * scale)
+local function SZ(n) return math.floor(n * scale) end
+
+-- ============================================
+-- 🎨 THEME
+-- ============================================
+local THEME = {
+    Bg         = Color3.fromRGB(10, 8, 18),
+    BgPanel    = Color3.fromRGB(18, 14, 28),
+    BgHeader   = Color3.fromRGB(24, 18, 38),
+    BgCard     = Color3.fromRGB(22, 18, 34),
+    BgInput    = Color3.fromRGB(14, 12, 22),
+    Gold       = Color3.fromRGB(255, 200, 80),
+    GoldDark   = Color3.fromRGB(180, 130, 40),
+    Purple     = Color3.fromRGB(160, 100, 255),
+    PurpleDark = Color3.fromRGB(90, 50, 160),
+    Red        = Color3.fromRGB(255, 70, 90),
+    Green      = Color3.fromRGB(80, 230, 140),
+    Cyan       = Color3.fromRGB(80, 210, 255),
+    Pink       = Color3.fromRGB(255, 100, 200),
+    Text       = Color3.fromRGB(235, 230, 255),
+    TextDim    = Color3.fromRGB(150, 140, 180),
+    Border     = Color3.fromRGB(70, 55, 120),
+    LampGold   = Color3.fromRGB(255, 220, 120),
+}
+
+-- ============================================
+-- UI ROOT
+-- ============================================
+local UI = Instance.new("ScreenGui")
+UI.Name = "ZABr0om_UI"
+UI.ResetOnSpawn = false
+UI.IgnoreGuiInset = true
+UI.ZIndexBehavior = Enum.ZIndexBehavior.Global
+UI.Parent = GuiParent
+
+local Panel = Instance.new("Frame", UI)
+Panel.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
+Panel.Position = UDim2.new(0.5, -PANEL_W/2, 0.5, -PANEL_H/2)
+Panel.BackgroundColor3 = THEME.Bg
+Panel.BorderSizePixel = 0
+Panel.Active = false
+Panel.Draggable = false
+Panel.ZIndex = 1
+Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, SZ(22))
+
+local MainStroke = Instance.new("UIStroke", Panel)
+MainStroke.Thickness = 2
+MainStroke.Color = THEME.GoldDark
+MainStroke.ZIndex = 2
+
+local MainGrad = Instance.new("UIGradient", MainStroke)
+MainGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.0, THEME.Purple),
+    ColorSequenceKeypoint.new(0.5, THEME.Gold),
+    ColorSequenceKeypoint.new(1.0, THEME.Cyan),
+})
+MainGrad.Rotation = 45
+
+-- HEADER
+local Header = Instance.new("Frame", Panel)
+Header.Size = UDim2.new(1, 0, 0, SZ(68))
+Header.BackgroundColor3 = THEME.BgHeader
+Header.BorderSizePixel = 0
+Header.Active = false
+Header.ZIndex = 3
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, SZ(22))
+
+local HeaderFix = Instance.new("Frame", Header)
+HeaderFix.Size = UDim2.new(1, 0, 0, SZ(22))
+HeaderFix.Position = UDim2.new(0, 0, 1, -SZ(22))
+HeaderFix.BackgroundColor3 = THEME.BgHeader
+HeaderFix.BorderSizePixel = 0
+HeaderFix.Active = false
+HeaderFix.ZIndex = 3
+
+local LogoDot = Instance.new("Frame", Header)
+LogoDot.Size = UDim2.new(0, SZ(48), 0, SZ(48))
+LogoDot.Position = UDim2.new(0, SZ(14), 0.5, -SZ(24))
+LogoDot.BackgroundColor3 = THEME.Gold
+LogoDot.BorderSizePixel = 0
+LogoDot.Active = false
+LogoDot.ZIndex = 4
+Instance.new("UICorner", LogoDot).CornerRadius = UDim.new(0, SZ(13))
+
+local LogoGrad = Instance.new("UIGradient", LogoDot)
+LogoGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, THEME.Gold),
+    ColorSequenceKeypoint.new(1, THEME.Purple),
+})
+LogoGrad.Rotation = 45
+
+local LogoText = Instance.new("TextLabel", LogoDot)
+LogoText.Size = UDim2.new(1, 0, 1, 0)
+LogoText.BackgroundTransparency = 1
+LogoText.Text = "Z"
+LogoText.TextColor3 = THEME.Bg
+LogoText.Font = Enum.Font.GothamBlack
+LogoText.TextSize = SZ(28)
+LogoText.ZIndex = 5
+LogoText.Active = false
+
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, -SZ(220), 0, SZ(30))
+Title.Position = UDim2.new(0, SZ(74), 0, SZ(10))
+Title.BackgroundTransparency = 1
+Title.Text = "ZABco0l"
+Title.TextColor3 = THEME.Text
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = SZ(26)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 4
+Title.Active = false
+
+local VerBadge = Instance.new("TextLabel", Header)
+VerBadge.Size = UDim2.new(0, SZ(100), 0, SZ(20))
+VerBadge.Position = UDim2.new(0, SZ(74), 0, SZ(42))
+VerBadge.BackgroundColor3 = THEME.PurpleDark
+VerBadge.Text = "v" .. VERSION .. " 💡"
+VerBadge.TextColor3 = THEME.Text
+VerBadge.Font = Enum.Font.GothamBold
+VerBadge.TextSize = SZ(12)
+VerBadge.BorderSizePixel = 0
+VerBadge.ZIndex = 4
+VerBadge.Active = false
+Instance.new("UICorner", VerBadge).CornerRadius = UDim.new(0, SZ(6))
+
+local LivePill = Instance.new("Frame", Header)
+LivePill.Size = UDim2.new(0, SZ(70), 0, SZ(26))
+LivePill.Position = UDim2.new(1, -SZ(150), 0.5, -SZ(13))
+LivePill.BackgroundColor3 = Color3.fromRGB(40, 24, 24)
+LivePill.BorderSizePixel = 0
+LivePill.Active = false
+LivePill.ZIndex = 4
+Instance.new("UICorner", LivePill).CornerRadius = UDim.new(1, 0)
+
+local LiveDot = Instance.new("Frame", LivePill)
+LiveDot.Size = UDim2.new(0, SZ(10), 0, SZ(10))
+LiveDot.Position = UDim2.new(0, SZ(8), 0.5, -SZ(5))
+LiveDot.BackgroundColor3 = THEME.Red
+LiveDot.BorderSizePixel = 0
+LiveDot.Active = false
+LiveDot.ZIndex = 5
+Instance.new("UICorner", LiveDot).CornerRadius = UDim.new(1, 0)
+
+local LiveText = Instance.new("TextLabel", LivePill)
+LiveText.Size = UDim2.new(1, -SZ(24), 1, 0)
+LiveText.Position = UDim2.new(0, SZ(22), 0, 0)
+LiveText.BackgroundTransparency = 1
+LiveText.Text = "READY"
+LiveText.TextColor3 = THEME.Red
+LiveText.Font = Enum.Font.GothamBold
+LiveText.TextSize = SZ(12)
+LiveText.ZIndex = 5
+LiveText.Active = false
+
+local ExitBtn = Instance.new("TextButton", Header)
+ExitBtn.Size = UDim2.new(0, SZ(32), 0, SZ(32))
+ExitBtn.Position = UDim2.new(1, -SZ(40), 0.5, -SZ(16))
+ExitBtn.BackgroundColor3 = Color3.fromRGB(60, 24, 32)
+ExitBtn.Text = "×"
+ExitBtn.TextColor3 = Color3.fromRGB(255, 150, 160)
+ExitBtn.Font = Enum.Font.GothamBold
+ExitBtn.TextSize = SZ(22)
+ExitBtn.BorderSizePixel = 0
+ExitBtn.AutoButtonColor = false
+ExitBtn.ZIndex = 10
+Instance.new("UICorner", ExitBtn).CornerRadius = UDim.new(0, SZ(8))
+
+local MinBtn = Instance.new("TextButton", Header)
+MinBtn.Size = UDim2.new(0, SZ(32), 0, SZ(32))
+MinBtn.Position = UDim2.new(1, -SZ(78), 0.5, -SZ(16))
+MinBtn.BackgroundColor3 = Color3.fromRGB(40, 36, 60)
+MinBtn.Text = "−"
+MinBtn.TextColor3 = THEME.Text
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = SZ(22)
+MinBtn.BorderSizePixel = 0
+MinBtn.AutoButtonColor = false
+MinBtn.ZIndex = 10
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, SZ(8))
+
+-- CUSTOM DRAG
+do
+    local dragging, dragStart, startPos
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+           or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Panel.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+           and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        local delta = input.Position - dragStart
+        Panel.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end)
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+           or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- STATUS BAR
+local StatusBar = Instance.new("Frame", Panel)
+StatusBar.Size = UDim2.new(1, -SZ(28), 0, SZ(30))
+StatusBar.Position = UDim2.new(0, SZ(14), 1, -SZ(40))
+StatusBar.BackgroundColor3 = THEME.BgHeader
+StatusBar.BorderSizePixel = 0
+StatusBar.Active = false
+StatusBar.ZIndex = 3
+Instance.new("UICorner", StatusBar).CornerRadius = UDim.new(0, SZ(10))
+
+local StatusDot = Instance.new("Frame", StatusBar)
+StatusDot.Size = UDim2.new(0, SZ(9), 0, SZ(9))
+StatusDot.Position = UDim2.new(0, SZ(12), 0.5, -SZ(4))
+StatusDot.BackgroundColor3 = THEME.Green
+StatusDot.BorderSizePixel = 0
+StatusDot.Active = false
+StatusDot.ZIndex = 4
+Instance.new("UICorner", StatusDot).CornerRadius = UDim.new(1, 0)
+
+local StatusLabel = Instance.new("TextLabel", StatusBar)
+StatusLabel.Size = UDim2.new(1, -SZ(30), 1, 0)
+StatusLabel.Position = UDim2.new(0, SZ(26), 0, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Ready · v" .. VERSION
+StatusLabel.TextColor3 = THEME.TextDim
+StatusLabel.Font = Enum.Font.GothamMedium
+StatusLabel.TextSize = SZ(13)
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.ZIndex = 4
+StatusLabel.Active = false
+
+local function setStatus(text, color)
+    safe(function()
+        StatusLabel.Text = text
+        StatusLabel.TextColor3 = color or THEME.TextDim
+    end)
+end
+
+-- Y POSITIONS
+local Y = {
+    mode    = SZ(80),
+    toggle  = SZ(128),
+    search  = SZ(172),
+    action  = SZ(216),
+    viewrow = SZ(276),
+    lamp    = SZ(320),
+    aura    = SZ(500),
+    server  = SZ(650),
+    sound   = SZ(810),
+}
+
+-- MODE
+local ModeRow = Instance.new("Frame", Panel)
+ModeRow.Size = UDim2.new(1, -SZ(28), 0, SZ(42))
+ModeRow.Position = UDim2.new(0, SZ(14), 0, Y.mode)
+ModeRow.BackgroundColor3 = THEME.BgCard
+ModeRow.BorderSizePixel = 0
+ModeRow.Active = false
+ModeRow.ZIndex = 3
+Instance.new("UICorner", ModeRow).CornerRadius = UDim.new(0, SZ(12))
+
+local ModeStroke = Instance.new("UIStroke", ModeRow)
+ModeStroke.Thickness = 1
+ModeStroke.Color = THEME.Border
+ModeStroke.ZIndex = 4
+
+local ModeBtn = Instance.new("TextButton", ModeRow)
+ModeBtn.Size = UDim2.new(1, -SZ(8), 1, -SZ(8))
+ModeBtn.Position = UDim2.new(0, SZ(4), 0, SZ(4))
+ModeBtn.BackgroundColor3 = THEME.PurpleDark
+ModeBtn.Text = "◈  SINGLE TARGET"
+ModeBtn.TextColor3 = THEME.Text
+ModeBtn.Font = Enum.Font.GothamBold
+ModeBtn.TextSize = SZ(16)
+ModeBtn.BorderSizePixel = 0
+ModeBtn.AutoButtonColor = false
+ModeBtn.ZIndex = 10
+Instance.new("UICorner", ModeBtn).CornerRadius = UDim.new(0, SZ(10))
+
+local ModeGrad = Instance.new("UIGradient", ModeBtn)
+ModeGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, THEME.Purple),
+    ColorSequenceKeypoint.new(1, THEME.PurpleDark),
+})
+ModeGrad.Rotation = 90
+
+-- TOGGLE
+local ToggleRow = Instance.new("Frame", Panel)
+ToggleRow.Size = UDim2.new(1, -SZ(28), 0, SZ(38))
+ToggleRow.Position = UDim2.new(0, SZ(14), 0, Y.toggle)
+ToggleRow.BackgroundTransparency = 1
+ToggleRow.Active = false
+ToggleRow.ZIndex = 3
+
+local function makeToggle(parent, xPos, text)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0.5, -SZ(5), 1, 0)
+    btn.Position = UDim2.new(xPos, 0, 0, 0)
+    btn.BackgroundColor3 = THEME.BgCard
+    btn.Text = text
+    btn.TextColor3 = THEME.TextDim
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = SZ(15)
+    btn.BorderSizePixel = 0
+    btn.AutoButtonColor = false
+    btn.ZIndex = 10
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, SZ(10))
+    local str = Instance.new("UIStroke", btn)
+    str.Thickness = 1.5
+    str.Color = THEME.Border
+    str.ZIndex = 11
+    return btn, str
+end
+
+local OrbitBtn, OrbitStroke = makeToggle(ToggleRow, 0, "🌀  ORBIT")
+local ESPBtn, ESPStroke = makeToggle(ToggleRow, 0.5, "👁  ESP")
+
+-- SEARCH
+local SearchWrap = Instance.new("Frame", Panel)
+SearchWrap.Size = UDim2.new(1, -SZ(28), 0, SZ(42))
+SearchWrap.Position = UDim2.new(0, SZ(14), 0, Y.search)
+SearchWrap.BackgroundColor3 = THEME.BgInput
+SearchWrap.BorderSizePixel = 0
+SearchWrap.Active = false
+SearchWrap.ZIndex = 3
+Instance.new("UICorner", SearchWrap).CornerRadius = UDim.new(0, SZ(12))
+
+local SearchStroke = Instance.new("UIStroke", SearchWrap)
+SearchStroke.Thickness = 1
+SearchStroke.Color = THEME.Border
+SearchStroke.ZIndex = 4
+
+local SearchIcon = Instance.new("TextLabel", SearchWrap)
+SearchIcon.Size = UDim2.new(0, SZ(34), 1, 0)
+SearchIcon.Position = UDim2.new(0, SZ(4), 0, 0)
+SearchIcon.BackgroundTransparency = 1
+SearchIcon.Text = "🔍"
+SearchIcon.TextSize = SZ(18)
+SearchIcon.ZIndex = 5
+SearchIcon.Active = false
+
+local InputBox = Instance.new("TextBox", SearchWrap)
+InputBox.Size = UDim2.new(1, -SZ(42), 1, 0)
+InputBox.Position = UDim2.new(0, SZ(38), 0, 0)
+InputBox.BackgroundTransparency = 1
+InputBox.PlaceholderText = "Cari player..."
+InputBox.Text = ""
+InputBox.PlaceholderColor3 = THEME.TextDim
+InputBox.TextColor3 = THEME.Text
+InputBox.Font = Enum.Font.GothamMedium
+InputBox.TextSize = SZ(16)
+InputBox.TextXAlignment = Enum.TextXAlignment.Left
+InputBox.ClearTextOnFocus = false
+InputBox.ZIndex = 10
+
+-- ACTION
+local ActionBtn = Instance.new("TextButton", Panel)
+ActionBtn.Size = UDim2.new(1, -SZ(28), 0, SZ(54))
+ActionBtn.Position = UDim2.new(0, SZ(14), 0, Y.action)
+ActionBtn.BackgroundColor3 = THEME.BgCard
+ActionBtn.Text = "⚡  A C T I V A T E"
+ActionBtn.TextColor3 = THEME.TextDim
+ActionBtn.Font = Enum.Font.GothamBlack
+ActionBtn.TextSize = SZ(20)
+ActionBtn.BorderSizePixel = 0
+ActionBtn.AutoButtonColor = false
+ActionBtn.ZIndex = 10
+Instance.new("UICorner", ActionBtn).CornerRadius = UDim.new(0, SZ(14))
+
+local ActionStroke = Instance.new("UIStroke", ActionBtn)
+ActionStroke.Thickness = 2
+ActionStroke.Color = THEME.Border
+ActionStroke.ZIndex = 11
+
+local ActionGrad = Instance.new("UIGradient", ActionBtn)
+ActionGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(36, 30, 56)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 18, 36)),
+})
+ActionGrad.Rotation = 90
+
+-- VIEW + TP
+local ActionRow = Instance.new("Frame", Panel)
+ActionRow.Size = UDim2.new(1, -SZ(28), 0, SZ(38))
+ActionRow.Position = UDim2.new(0, SZ(14), 0, Y.viewrow)
+ActionRow.BackgroundTransparency = 1
+ActionRow.Active = false
+ActionRow.ZIndex = 3
+
+local ViewBtn = Instance.new("TextButton", ActionRow)
+ViewBtn.Size = UDim2.new(0.5, -SZ(5), 1, 0)
+ViewBtn.BackgroundColor3 = Color3.fromRGB(24, 34, 44)
+ViewBtn.Text = "👁  VIEW"
+ViewBtn.TextColor3 = THEME.Cyan
+ViewBtn.Font = Enum.Font.GothamBold
+ViewBtn.TextSize = SZ(15)
+ViewBtn.BorderSizePixel = 0
+ViewBtn.AutoButtonColor = false
+ViewBtn.ZIndex = 10
+Instance.new("UICorner", ViewBtn).CornerRadius = UDim.new(0, SZ(10))
+
+local TpBtn = Instance.new("TextButton", ActionRow)
+TpBtn.Size = UDim2.new(0.5, -SZ(5), 1, 0)
+TpBtn.Position = UDim2.new(0.5, 0, 0, 0)
+TpBtn.BackgroundColor3 = Color3.fromRGB(44, 30, 20)
+TpBtn.Text = "⚡  TELEPORT"
+TpBtn.TextColor3 = THEME.Gold
+TpBtn.Font = Enum.Font.GothamBold
+TpBtn.TextSize = SZ(15)
+TpBtn.BorderSizePixel = 0
+TpBtn.AutoButtonColor = false
+TpBtn.ZIndex = 10
+Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, SZ(10))
+
+-- ============================================
+-- 💡 LAMP SKY PANEL
+-- ============================================
+local LampPanel = Instance.new("Frame", Panel)
+LampPanel.Size = UDim2.new(1, -SZ(28), 0, SZ(172))
+LampPanel.Position = UDim2.new(0, SZ(14), 0, Y.lamp)
+LampPanel.BackgroundColor3 = Color3.fromRGB(14, 12, 22)
+LampPanel.BorderSizePixel = 0
+LampPanel.Active = false
+LampPanel.ZIndex = 3
+Instance.new("UICorner", LampPanel).CornerRadius = UDim.new(0, SZ(14))
+
+local LampStroke = Instance.new("UIStroke", LampPanel)
+LampStroke.Thickness = 1.5
+LampStroke.Color = THEME.LampGold
+LampStroke.ZIndex = 4
+
+local LampGradStr = Instance.new("UIGradient", LampStroke)
+LampGradStr.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, THEME.LampGold),
+    ColorSequenceKeypoint.new(1, THEME.Purple),
+})
+
+local LampTitle = Instance.new("TextLabel", LampPanel)
+LampTitle.Size = UDim2.new(1, -SZ(90), 0, SZ(28))
+LampTitle.Position = UDim2.new(0, SZ(14), 0, SZ(6))
+LampTitle.BackgroundTransparency = 1
+LampTitle.Text = "💡  LAMP SKY  (15)"
+LampTitle.TextColor3 = THEME.LampGold
+LampTitle.Font = Enum.Font.GothamBold
+LampTitle.TextSize = SZ(16)
+LampTitle.TextXAlignment = Enum.TextXAlignment.Left
+LampTitle.ZIndex = 5
+LampTitle.Active = false
+
+local LampToggle = Instance.new("TextButton", LampPanel)
+LampToggle.Size = UDim2.new(0, SZ(70), 0, SZ(26))
+LampToggle.Position = UDim2.new(1, -SZ(82), 0, SZ(7))
+LampToggle.BackgroundColor3 = Color3.fromRGB(40, 30, 20)
+LampToggle.Text = "OFF"
+LampToggle.TextColor3 = Color3.fromRGB(255, 180, 100)
+LampToggle.Font = Enum.Font.GothamBold
+LampToggle.TextSize = SZ(14)
+LampToggle.BorderSizePixel = 0
+LampToggle.AutoButtonColor = false
+LampToggle.ZIndex = 10
+Instance.new("UICorner", LampToggle).CornerRadius = UDim.new(0, SZ(6))
+
+-- Row 1
+local LampRow1 = Instance.new("Frame", LampPanel)
+LampRow1.Size = UDim2.new(1, -SZ(16), 0, SZ(38))
+LampRow1.Position = UDim2.new(0, SZ(8), 0, SZ(40))
+LampRow1.BackgroundTransparency = 1
+LampRow1.ZIndex = 4
+
+local SummonBtn = Instance.new("TextButton", LampRow1)
+SummonBtn.Size = UDim2.new(0.5, -SZ(4), 1, 0)
+SummonBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 30)
+SummonBtn.Text = "☁  SUMMON SKY"
+SummonBtn.TextColor3 = Color3.fromRGB(200, 255, 150)
+SummonBtn.Font = Enum.Font.GothamBold
+SummonBtn.TextSize = SZ(13)
+SummonBtn.BorderSizePixel = 0
+SummonBtn.AutoButtonColor = false
+SummonBtn.ZIndex = 10
+Instance.new("UICorner", SummonBtn).CornerRadius = UDim.new(0, SZ(10))
+
+local RecallBtn = Instance.new("TextButton", LampRow1)
+RecallBtn.Size = UDim2.new(0.5, -SZ(4), 1, 0)
+RecallBtn.Position = UDim2.new(0.5, 0, 0, 0)
+RecallBtn.BackgroundColor3 = Color3.fromRGB(50, 30, 50)
+RecallBtn.Text = "🎯  RECALL ME"
+RecallBtn.TextColor3 = Color3.fromRGB(255, 200, 255)
+RecallBtn.Font = Enum.Font.GothamBold
+RecallBtn.TextSize = SZ(13)
+RecallBtn.BorderSizePixel = 0
+RecallBtn.AutoButtonColor = false
+RecallBtn.ZIndex = 10
+Instance.new("UICorner", RecallBtn).CornerRadius = UDim.new(0, SZ(10))
+
+-- Row 2
+local LampRow2 = Instance.new("Frame", LampPanel)
+LampRow2.Size = UDim2.new(1, -SZ(16), 0, SZ(34))
+LampRow2.Position = UDim2.new(0, SZ(8), 0, SZ(84))
+LampRow2.BackgroundTransparency = 1
+LampRow2.ZIndex = 4
+
+local SpinDownBtn = Instance.new("TextButton", LampRow2)
+SpinDownBtn.Size = UDim2.new(0.33, -SZ(3), 1, 0)
+SpinDownBtn.BackgroundColor3 = Color3.fromRGB(35, 30, 50)
+SpinDownBtn.Text = "◀ SLOW"
+SpinDownBtn.TextColor3 = Color3.fromRGB(200, 200, 255)
+SpinDownBtn.Font = Enum.Font.GothamBold
+SpinDownBtn.TextSize = SZ(12)
+SpinDownBtn.BorderSizePixel = 0
+SpinDownBtn.AutoButtonColor = false
+SpinDownBtn.ZIndex = 10
+Instance.new("UICorner", SpinDownBtn).CornerRadius = UDim.new(0, SZ(8))
+
+local SpinLabel = Instance.new("TextLabel", LampRow2)
+SpinLabel.Size = UDim2.new(0.34, 0, 1, 0)
+SpinLabel.Position = UDim2.new(0.33, 0, 0, 0)
+SpinLabel.BackgroundColor3 = Color3.fromRGB(24, 20, 36)
+SpinLabel.Text = "SPD: 2.0"
+SpinLabel.TextColor3 = THEME.LampGold
+SpinLabel.Font = Enum.Font.Code
+SpinLabel.TextSize = SZ(12)
+SpinLabel.BorderSizePixel = 0
+SpinLabel.ZIndex = 5
+SpinLabel.Active = false
+Instance.new("UICorner", SpinLabel).CornerRadius = UDim.new(0, SZ(8))
+
+local SpinUpBtn = Instance.new("TextButton", LampRow2)
+SpinUpBtn.Size = UDim2.new(0.33, -SZ(3), 1, 0)
+SpinUpBtn.Position = UDim2.new(0.67, SZ(3), 0, 0)
+SpinUpBtn.BackgroundColor3 = Color3.fromRGB(50, 40, 30)
+SpinUpBtn.Text = "FAST ▶"
+SpinUpBtn.TextColor3 = Color3.fromRGB(255, 220, 150)
+SpinUpBtn.Font = Enum.Font.GothamBold
+SpinUpBtn.TextSize = SZ(12)
+SpinUpBtn.BorderSizePixel = 0
+SpinUpBtn.AutoButtonColor = false
+SpinUpBtn.ZIndex = 10
+Instance.new("UICorner", SpinUpBtn).CornerRadius = UDim.new(0, SZ(8))
+
+-- Row 3
+local LampRow3 = Instance.new("Frame", LampPanel)
+LampRow3.Size = UDim2.new(1, -SZ(16), 0, SZ(34))
+LampRow3.Position = UDim2.new(0, SZ(8), 0, SZ(124))
+LampRow3.BackgroundTransparency = 1
+LampRow3.ZIndex = 4
+
+local RadiusBtn = Instance.new("TextButton", LampRow3)
+RadiusBtn.Size = UDim2.new(0.5, -SZ(3), 1, 0)
+RadiusBtn.BackgroundColor3 = Color3.fromRGB(30, 40, 50)
+RadiusBtn.Text = "RAD: 30"
+RadiusBtn.TextColor3 = Color3.fromRGB(150, 220, 255)
+RadiusBtn.Font = Enum.Font.GothamBold
+RadiusBtn.TextSize = SZ(12)
+RadiusBtn.BorderSizePixel = 0
+RadiusBtn.AutoButtonColor = false
+RadiusBtn.ZIndex = 10
+Instance.new("UICorner", RadiusBtn).CornerRadius = UDim.new(0, SZ(8))
+
+local HeightBtn = Instance.new("TextButton", LampRow3)
+HeightBtn.Size = UDim2.new(0.5, -SZ(3), 1, 0)
+HeightBtn.Position = UDim2.new(0.5, SZ(3), 0, 0)
+HeightBtn.BackgroundColor3 = Color3.fromRGB(40, 30, 50)
+HeightBtn.Text = "HGT: 70"
+HeightBtn.TextColor3 = Color3.fromRGB(220, 180, 255)
+HeightBtn.Font = Enum.Font.GothamBold
+HeightBtn.TextSize = SZ(12)
+HeightBtn.BorderSizePixel = 0
+HeightBtn.AutoButtonColor = false
+HeightBtn.ZIndex = 10
+Instance.new("UICorner", HeightBtn).CornerRadius = UDim.new(0, SZ(8))
+
+-- ============================================
+-- ✨ AURA PANEL
+-- ============================================
+local AuraPanel = Instance.new("Frame", Panel)
+AuraPanel.Size = UDim2.new(1, -SZ(28), 0, SZ(144))
+AuraPanel.Position = UDim2.new(0, SZ(14), 0, Y.aura)
+AuraPanel.BackgroundColor3 = THEME.BgPanel
+AuraPanel.BorderSizePixel = 0
+AuraPanel.Active = false
+AuraPanel.ZIndex = 3
+Instance.new("UICorner", AuraPanel).CornerRadius = UDim.new(0, SZ(14))
+
+local AuraStroke = Instance.new("UIStroke", AuraPanel)
+AuraStroke.Thickness = 1.5
+AuraStroke.Color = THEME.Border
+AuraStroke.ZIndex = 4
+
+local AuraGradFrame = Instance.new("UIGradient", AuraStroke)
+AuraGradFrame.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, THEME.Gold),
+    ColorSequenceKeypoint.new(1, THEME.Purple),
+})
+
+local AuraTitle = Instance.new("TextLabel", AuraPanel)
+AuraTitle.Size = UDim2.new(1, -SZ(90), 0, SZ(26))
+AuraTitle.Position = UDim2.new(0, SZ(14), 0, SZ(6))
+AuraTitle.BackgroundTransparency = 1
+AuraTitle.Text = "✨  AURA STUDIO  (36)"
+AuraTitle.TextColor3 = THEME.Gold
+AuraTitle.Font = Enum.Font.GothamBold
+AuraTitle.TextSize = SZ(14)
+AuraTitle.TextXAlignment = Enum.TextXAlignment.Left
+AuraTitle.ZIndex = 5
+AuraTitle.Active = false
+
+local AuraToggle = Instance.new("TextButton", AuraPanel)
+AuraToggle.Size = UDim2.new(0, SZ(60), 0, SZ(24))
+AuraToggle.Position = UDim2.new(1, -SZ(72), 0, SZ(7))
+AuraToggle.BackgroundColor3 = Color3.fromRGB(40, 24, 24)
+AuraToggle.Text = "OFF"
+AuraToggle.TextColor3 = THEME.Red
+AuraToggle.Font = Enum.Font.GothamBold
+AuraToggle.TextSize = SZ(13)
+AuraToggle.BorderSizePixel = 0
+AuraToggle.AutoButtonColor = false
+AuraToggle.ZIndex = 10
+Instance.new("UICorner", AuraToggle).CornerRadius = UDim.new(0, SZ(6))
+
+local StyleRow = Instance.new("Frame", AuraPanel)
+StyleRow.Size = UDim2.new(1, -SZ(16), 0, SZ(32))
+StyleRow.Position = UDim2.new(0, SZ(8), 0, SZ(34))
+StyleRow.BackgroundColor3 = THEME.BgCard
+StyleRow.BorderSizePixel = 0
+StyleRow.Active = false
+StyleRow.ZIndex = 4
+Instance.new("UICorner", StyleRow).CornerRadius = UDim.new(0, SZ(10))
+
+local StylePrev = Instance.new("TextButton", StyleRow)
+StylePrev.Size = UDim2.new(0, SZ(32), 1, 0)
+StylePrev.BackgroundColor3 = Color3.fromRGB(30, 24, 48)
+StylePrev.Text = "◀"
+StylePrev.TextColor3 = THEME.Gold
+StylePrev.Font = Enum.Font.GothamBold
+StylePrev.TextSize = SZ(16)
+StylePrev.BorderSizePixel = 0
+StylePrev.AutoButtonColor = false
+StylePrev.ZIndex = 10
+Instance.new("UICorner", StylePrev).CornerRadius = UDim.new(0, SZ(10))
+
+local StyleLabel = Instance.new("TextLabel", StyleRow)
+StyleLabel.Size = UDim2.new(1, -SZ(64), 1, 0)
+StyleLabel.Position = UDim2.new(0, SZ(32), 0, 0)
+StyleLabel.BackgroundTransparency = 1
+StyleLabel.Text = "🔥  INFERNO  [T1]"
+StyleLabel.TextColor3 = THEME.Text
+StyleLabel.Font = Enum.Font.GothamBlack
+StyleLabel.TextSize = SZ(14)
+StyleLabel.ZIndex = 5
+StyleLabel.Active = false
+
+local StyleNext = Instance.new("TextButton", StyleRow)
+StyleNext.Size = UDim2.new(0, SZ(32), 1, 0)
+StyleNext.Position = UDim2.new(1, -SZ(32), 0, 0)
+StyleNext.BackgroundColor3 = Color3.fromRGB(30, 24, 48)
+StyleNext.Text = "▶"
+StyleNext.TextColor3 = THEME.Gold
+StyleNext.Font = Enum.Font.GothamBold
+StyleNext.TextSize = SZ(16)
+StyleNext.BorderSizePixel = 0
+StyleNext.AutoButtonColor = false
+StyleNext.ZIndex = 10
+Instance.new("UICorner", StyleNext).CornerRadius = UDim.new(0, SZ(10))
+
+local activeSlider = nil
+local function makeSlider(parent, yPos, label, defaultVal, minV, maxV)
+    local row = Instance.new("Frame", parent)
+    row.Size = UDim2.new(1, -SZ(16), 0, SZ(22))
+    row.Position = UDim2.new(0, SZ(8), 0, yPos)
+    row.BackgroundTransparency = 1
+    row.Active = false
+    row.ZIndex = 4
+
+    local lbl = Instance.new("TextLabel", row)
+    lbl.Size = UDim2.new(0, SZ(76), 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label
+    lbl.TextColor3 = THEME.TextDim
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = SZ(12)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 5
+    lbl.Active = false
+
+    local track = Instance.new("Frame", row)
+    track.Size = UDim2.new(1, -SZ(140), 0, SZ(10))
+    track.Position = UDim2.new(0, SZ(76), 0.5, -SZ(5))
+    track.BackgroundColor3 = Color3.fromRGB(30, 24, 48)
+    track.BorderSizePixel = 0
+    track.ZIndex = 5
+    Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
+
+    local fill = Instance.new("Frame", track)
+    fill.Size = UDim2.new((defaultVal - minV) / (maxV - minV), 0, 1, 0)
+    fill.BackgroundColor3 = THEME.Gold
+    fill.BorderSizePixel = 0
+    fill.ZIndex = 6
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local valLbl = Instance.new("TextLabel", row)
+    valLbl.Size = UDim2.new(0, SZ(60), 1, 0)
+    valLbl.Position = UDim2.new(1, -SZ(60), 0, 0)
+    valLbl.BackgroundTransparency = 1
+    valLbl.Text = string.format("%.1f", defaultVal)
+    valLbl.TextColor3 = THEME.Text
+    valLbl.Font = Enum.Font.Code
+    valLbl.TextSize = SZ(12)
+    valLbl.TextXAlignment = Enum.TextXAlignment.Right
+    valLbl.ZIndex = 5
+    valLbl.Active = false
+
+    local hitbox = Instance.new("TextButton", track)
+    hitbox.Size = UDim2.new(1, SZ(20), 3, 0)
+    hitbox.Position = UDim2.new(0, -SZ(10), 0.5, 0)
+    hitbox.AnchorPoint = Vector2.new(0, 0.5)
+    hitbox.BackgroundTransparency = 1
+    hitbox.Text = ""
+    hitbox.AutoButtonColor = false
+    hitbox.ZIndex = 10
+
+    hitbox.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+           or input.UserInputType == Enum.UserInputType.Touch then
+            activeSlider = {track = track, fill = fill, valLbl = valLbl, minV = minV, maxV = maxV}
+        end
+    end)
+    hitbox.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+           or input.UserInputType == Enum.UserInputType.Touch then
+            activeSlider = nil
+        end
+    end)
+
+    return valLbl
+end
+
+local IntensityVal = makeSlider(AuraPanel, SZ(72),  "Intensity", 1.0, 0.1, 5.0)
+local RadiusVal    = makeSlider(AuraPanel, SZ(98),  "Radius",    3.5, 1.0, 15.0)
+local SpeedVal     = makeSlider(AuraPanel, SZ(124), "Speed",     2.0, 0.5, 10.0)
+
+UIS.InputChanged:Connect(function(input)
+    if not activeSlider then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+       and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    local mx = input.Position.X
+    local abs = activeSlider.track.AbsolutePosition.X
+    local w = activeSlider.track.AbsoluteSize.X
+    local pct = math.clamp((mx - abs) / w, 0, 1)
+    activeSlider.fill.Size = UDim2.new(pct, 0, 1, 0)
+    local val = activeSlider.minV + (activeSlider.maxV - activeSlider.minV) * pct
+    activeSlider.valLbl.Text = string.format("%.1f", val)
+end)
+
+-- ============================================
+-- 🌐 SERVER PANEL
+-- ============================================
+local ServerPanel = Instance.new("Frame", Panel)
+ServerPanel.Size = UDim2.new(1, -SZ(28), 0, SZ(150))
+ServerPanel.Position = UDim2.new(0, SZ(14), 0, Y.server)
+ServerPanel.BackgroundColor3 = Color3.fromRGB(16, 10, 24)
+ServerPanel.BorderSizePixel = 0
+ServerPanel.Active = false
+ServerPanel.ZIndex = 3
+Instance.new("UICorner", ServerPanel).CornerRadius = UDim.new(0, SZ(14))
+
+local ServerStroke = Instance.new("UIStroke", ServerPanel)
+ServerStroke.Thickness = 1.5
+ServerStroke.Color = THEME.Pink
+ServerStroke.ZIndex = 4
+
+local ServerGradStr = Instance.new("UIGradient", ServerStroke)
+ServerGradStr.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, THEME.Pink),
+    ColorSequenceKeypoint.new(1, THEME.Cyan),
+})
+
+local ServerTitle = Instance.new("TextLabel", ServerPanel)
+ServerTitle.Size = UDim2.new(1, -SZ(90), 0, SZ(26))
+ServerTitle.Position = UDim2.new(0, SZ(14), 0, SZ(6))
+ServerTitle.BackgroundTransparency = 1
+ServerTitle.Text = "🌐  SERVER-SIDE"
+ServerTitle.TextColor3 = THEME.Pink
+ServerTitle.Font = Enum.Font.GothamBold
+ServerTitle.TextSize = SZ(14)
+ServerTitle.TextXAlignment = Enum.TextXAlignment.Left
+ServerTitle.ZIndex = 5
+ServerTitle.Active = false
+
+local ServerToggle = Instance.new("TextButton", ServerPanel)
+ServerToggle.Size = UDim2.new(0, SZ(60), 0, SZ(24))
+ServerToggle.Position = UDim2.new(1, -SZ(72), 0, SZ(7))
+ServerToggle.BackgroundColor3 = Color3.fromRGB(40, 20, 30)
+ServerToggle.Text = "OFF"
+ServerToggle.TextColor3 = Color3.fromRGB(255, 100, 120)
+ServerToggle.Font = Enum.Font.GothamBold
+ServerToggle.TextSize = SZ(13)
+ServerToggle.BorderSizePixel = 0
+ServerToggle.AutoButtonColor = false
+ServerToggle.ZIndex = 10
+Instance.new("UICorner", ServerToggle).CornerRadius = UDim.new(0, SZ(6))
+
+local ServerState = {
+    Enabled = false,
+    Teleport = false, Sound = false, Aura = false,
+    Fling = false, Anchor = false, Ragdoll = false,
+    AntiReset = false, AutoRejoin = false, TraceTarget = false,
+    AuraRate = 30, FlingPower = 100000,
+    LastTP = 0, LastFling = 0, LastRagdoll = 0,
+}
+
+local ServerBtnRefs = {}
+local function makeServerToggle(xPos, yPos, w, text, key)
+    local btn = Instance.new("TextButton", ServerPanel)
+    btn.Size = UDim2.new(w, 0, 0, SZ(34))
+    btn.Position = UDim2.new(xPos, 0, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 20, 40)
+    btn.Text = text
+    btn.TextColor3 = THEME.TextDim
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = SZ(11)
+    btn.BorderSizePixel = 0
+    btn.AutoButtonColor = false
+    btn.ZIndex = 10
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, SZ(8))
+    local s = Instance.new("UIStroke", btn)
+    s.Thickness = 1
+    s.Color = THEME.Border
+    s.ZIndex = 11
+
+    ServerBtnRefs[key] = {btn = btn, strk = s}
+
+    btn.MouseButton1Click:Connect(function()
+        ServerState[key] = not ServerState[key]
+        if ServerState[key] then
+            btn.BackgroundColor3 = Color3.fromRGB(50, 20, 60)
+            btn.TextColor3 = THEME.Pink
+            s.Color = THEME.Pink
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(30, 20, 40)
+            btn.TextColor3 = THEME.TextDim
+            s.Color = THEME.Border
+        end
+    end)
+end
+
+makeServerToggle(0.01,  SZ(40), 0.31, "📡 TELE",     "Teleport")
+makeServerToggle(0.345, SZ(40), 0.31, "🔊 SOUND",    "Sound")
+makeServerToggle(0.68,  SZ(40), 0.31, "✨ AURA",     "Aura")
+makeServerToggle(0.01,  SZ(78), 0.31, "💥 FLING",    "Fling")
+makeServerToggle(0.345, SZ(78), 0.31, "⚓ ANCHOR",   "Anchor")
+makeServerToggle(0.68,  SZ(78), 0.31, "💀 RAGDOLL",  "Ragdoll")
+makeServerToggle(0.01,  SZ(116), 0.31, "🛡️ NO-RESET", "AntiReset")
+makeServerToggle(0.345, SZ(116), 0.31, "🔄 REJOIN",   "AutoRejoin")
+makeServerToggle(0.68,  SZ(116), 0.31, "📍 TRACE",    "TraceTarget")
+
+-- ============================================
+-- 🎵 SOUND DECK
+-- ============================================
+local SoundDeck = Instance.new("Frame", Panel)
+SoundDeck.Size = UDim2.new(1, -SZ(28), 0, SZ(220))
+SoundDeck.Position = UDim2.new(0, SZ(14), 0, Y.sound)
+SoundDeck.BackgroundColor3 = THEME.BgPanel
+SoundDeck.BorderSizePixel = 0
+SoundDeck.Active = false
+SoundDeck.ZIndex = 3
+Instance.new("UICorner", SoundDeck).CornerRadius = UDim.new(0, SZ(14))
+
+local DeckStroke = Instance.new("UIStroke", SoundDeck)
+DeckStroke.Thickness = 1.5
+DeckStroke.Color = THEME.Border
+DeckStroke.ZIndex = 4
+
+local DeckTitle = Instance.new("TextLabel", SoundDeck)
+DeckTitle.Size = UDim2.new(1, -SZ(120), 0, SZ(26))
+DeckTitle.Position = UDim2.new(0, SZ(14), 0, SZ(4))
+DeckTitle.BackgroundTransparency = 1
+DeckTitle.Text = "🎵  SOUND DECK"
+DeckTitle.TextColor3 = THEME.Gold
+DeckTitle.Font = Enum.Font.GothamBold
+DeckTitle.TextSize = SZ(14)
+DeckTitle.TextXAlignment = Enum.TextXAlignment.Left
+DeckTitle.ZIndex = 5
+DeckTitle.Active = false
+
+local TrackCount = Instance.new("TextLabel", SoundDeck)
+TrackCount.Size = UDim2.new(0, SZ(90), 0, SZ(26))
+TrackCount.Position = UDim2.new(1, -SZ(102), 0, SZ(4))
+TrackCount.BackgroundTransparency = 1
+TrackCount.Text = "11 TRACKS"
+TrackCount.TextColor3 = THEME.TextDim
+TrackCount.Font = Enum.Font.GothamBold
+TrackCount.TextSize = SZ(11)
+TrackCount.TextXAlignment = Enum.TextXAlignment.Right
+TrackCount.ZIndex = 5
+TrackCount.Active = false
+
+local WaveBox = Instance.new("Frame", SoundDeck)
+WaveBox.Size = UDim2.new(1, -SZ(16), 0, SZ(20))
+WaveBox.Position = UDim2.new(0, SZ(8), 0, SZ(32))
+WaveBox.BackgroundColor3 = Color3.fromRGB(12, 10, 20)
+WaveBox.BorderSizePixel = 0
+WaveBox.Active = false
+WaveBox.ZIndex = 4
+Instance.new("UICorner", WaveBox).CornerRadius = UDim.new(0, SZ(6))
+
+local waveBars = {}
+local WAVE_N = 22
+for i = 1, WAVE_N do
+    local bar = Instance.new("Frame", WaveBox)
+    bar.Size = UDim2.new(0, SZ(4), 0.1, 0)
+    bar.Position = UDim2.new(0, SZ(6 + (i - 1) * 18), 0.5, 0)
+    bar.BackgroundColor3 = THEME.Gold
+    bar.BorderSizePixel = 0
+    bar.AnchorPoint = Vector2.new(0, 0.5)
+    bar.ZIndex = 5
+    bar.Active = false
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+    waveBars[i] = bar
+end
+
+local SoundScroll = Instance.new("ScrollingFrame", SoundDeck)
+SoundScroll.Size = UDim2.new(1, -SZ(16), 1, -SZ(64))
+SoundScroll.Position = UDim2.new(0, SZ(8), 0, SZ(58))
+SoundScroll.BackgroundTransparency = 1
+SoundScroll.BorderSizePixel = 0
+SoundScroll.ScrollBarThickness = 6
+SoundScroll.ScrollBarImageColor3 = THEME.Gold
+SoundScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+SoundScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+SoundScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+SoundScroll.ScrollingEnabled = true
+SoundScroll.Active = true
+SoundScroll.ElasticBehavior = Enum.ElasticBehavior.Never
+SoundScroll.ZIndex = 5
+
+local ScrollLayout = Instance.new("UIListLayout", SoundScroll)
+ScrollLayout.Padding = UDim.new(0, SZ(6))
+ScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local ScrollPad = Instance.new("UIPadding", SoundScroll)
+ScrollPad.PaddingLeft = UDim.new(0, SZ(4))
+ScrollPad.PaddingRight = UDim.new(0, SZ(4))
+ScrollPad.PaddingTop = UDim.new(0, SZ(2))
+ScrollPad.PaddingBottom = UDim.new(0, SZ(4))
+
+-- ============================================
+-- ✨ AURA DATA
+-- ============================================
+local AURA_STYLES = {
+    { name = "Inferno",   col1 = Color3.fromRGB(255, 80, 20),   col2 = Color3.fromRGB(255, 200, 40),  icon = "🔥", tier = 1 },
+    { name = "Frostbite", col1 = Color3.fromRGB(100, 220, 255), col2 = Color3.fromRGB(230, 250, 255), icon = "❄️", tier = 1 },
+    { name = "Toxic",     col1 = Color3.fromRGB(80, 255, 40),   col2 = Color3.fromRGB(180, 255, 100), icon = "☠️", tier = 1 },
+    { name = "Storm",     col1 = Color3.fromRGB(60, 120, 255),  col2 = Color3.fromRGB(180, 100, 255), icon = "⚡", tier = 1 },
+    { name = "Sandstorm", col1 = Color3.fromRGB(200, 150, 80),  col2 = Color3.fromRGB(255, 220, 140), icon = "🌪️", tier = 1 },
+    { name = "Tsunami",   col1 = Color3.fromRGB(20, 80, 180),   col2 = Color3.fromRGB(100, 200, 255), icon = "🌊", tier = 1 },
+    { name = "Void",      col1 = Color3.fromRGB(40, 10, 60),    col2 = Color3.fromRGB(140, 60, 220),  icon = "🕳️", tier = 2 },
+    { name = "Divine",    col1 = Color3.fromRGB(255, 230, 150), col2 = Color3.fromRGB(255, 255, 255), icon = "✨", tier = 2 },
+    { name = "Arcane",    col1 = Color3.fromRGB(180, 40, 255),  col2 = Color3.fromRGB(255, 100, 255), icon = "🔮", tier = 2 },
+    { name = "Cosmic",    col1 = Color3.fromRGB(20, 20, 80),    col2 = Color3.fromRGB(255, 220, 120), icon = "🌌", tier = 2 },
+    { name = "Phantom",   col1 = Color3.fromRGB(120, 140, 180), col2 = Color3.fromRGB(200, 220, 255), icon = "👻", tier = 2 },
+    { name = "Ethereal",  col1 = Color3.fromRGB(255, 130, 220), col2 = Color3.fromRGB(130, 240, 255), icon = "💫", tier = 2 },
+    { name = "Blood",     col1 = Color3.fromRGB(180, 10, 20),   col2 = Color3.fromRGB(255, 50, 60),   icon = "🩸", tier = 3 },
+    { name = "Shadow",    col1 = Color3.fromRGB(20, 20, 30),    col2 = Color3.fromRGB(80, 80, 120),   icon = "🌑", tier = 3 },
+    { name = "Neon",      col1 = Color3.fromRGB(0, 255, 255),   col2 = Color3.fromRGB(255, 0, 200),   icon = "💠", tier = 3 },
+    { name = "Phoenix",   col1 = Color3.fromRGB(255, 120, 20),  col2 = Color3.fromRGB(255, 60, 100),  icon = "🦅", tier = 3 },
+    { name = "Vampire",   col1 = Color3.fromRGB(120, 10, 30),   col2 = Color3.fromRGB(255, 80, 120),  icon = "🦇", tier = 3 },
+    { name = "Reaper",    col1 = Color3.fromRGB(30, 20, 40),    col2 = Color3.fromRGB(180, 100, 255), icon = "💀", tier = 3 },
+    { name = "Crystal",   col1 = Color3.fromRGB(255, 150, 220), col2 = Color3.fromRGB(255, 255, 255), icon = "💎", tier = 4 },
+    { name = "Diamond",   col1 = Color3.fromRGB(220, 240, 255), col2 = Color3.fromRGB(120, 200, 255), icon = "💠", tier = 4 },
+    { name = "Rainbow",   col1 = Color3.fromRGB(255, 0, 100),   col2 = Color3.fromRGB(0, 200, 255),   icon = "🌈", tier = 4 },
+    { name = "Aurora",    col1 = Color3.fromRGB(80, 255, 140),  col2 = Color3.fromRGB(180, 100, 255), icon = "🌠", tier = 4 },
+    { name = "Prism",     col1 = Color3.fromRGB(255, 100, 100), col2 = Color3.fromRGB(100, 100, 255), icon = "🔺", tier = 4 },
+    { name = "Sunburst",  col1 = Color3.fromRGB(255, 200, 40),  col2 = Color3.fromRGB(255, 120, 20),  icon = "☀️", tier = 4 },
+    { name = "Dragon",    col1 = Color3.fromRGB(220, 30, 30),   col2 = Color3.fromRGB(255, 200, 40),  icon = "🐉", tier = 5 },
+    { name = "Wolf",      col1 = Color3.fromRGB(150, 160, 180), col2 = Color3.fromRGB(240, 240, 255), icon = "🐺", tier = 5 },
+    { name = "Serpent",   col1 = Color3.fromRGB(40, 160, 60),   col2 = Color3.fromRGB(255, 220, 80),  icon = "🐍", tier = 5 },
+    { name = "Griffin",   col1 = Color3.fromRGB(180, 120, 60),  col2 = Color3.fromRGB(255, 220, 150), icon = "🦅", tier = 5 },
+    { name = "Kraken",    col1 = Color3.fromRGB(10, 40, 100),   col2 = Color3.fromRGB(80, 180, 255),  icon = "🦑", tier = 5 },
+    { name = "Titan",     col1 = Color3.fromRGB(200, 160, 80),  col2 = Color3.fromRGB(255, 60, 60),   icon = "🗿", tier = 5 },
+    { name = "SvrFlame",  col1 = Color3.fromRGB(255, 60, 0),    col2 = Color3.fromRGB(255, 180, 60),  icon = "🌐🔥", tier = 6 },
+    { name = "SvrVoid",   col1 = Color3.fromRGB(20, 0, 40),     col2 = Color3.fromRGB(180, 60, 255),  icon = "🌐🕳️", tier = 6 },
+    { name = "SvrDivine", col1 = Color3.fromRGB(255, 220, 120), col2 = Color3.fromRGB(255, 255, 255), icon = "🌐✨", tier = 6 },
+    { name = "SvrStorm",  col1 = Color3.fromRGB(40, 100, 255),  col2 = Color3.fromRGB(200, 100, 255), icon = "🌐⚡", tier = 6 },
+    { name = "SvrRain",   col1 = Color3.fromRGB(255, 0, 100),   col2 = Color3.fromRGB(0, 200, 255),   icon = "🌐🌈", tier = 6 },
+    { name = "SvrCosmic", col1 = Color3.fromRGB(15, 15, 60),    col2 = Color3.fromRGB(255, 220, 100), icon = "🌐🌌", tier = 6 },
+}
+
+local AuraState = { Enabled = false, StyleIndex = 1, Intensity = 1.0, Radius = 3.5, Speed = 2.0 }
+
+-- ============================================
+-- ✨ AURA ENGINE
+-- ============================================
+local AuraFolder = Instance.new("Folder")
+AuraFolder.Name = "ZABco0l_Aura"
+AuraFolder.Parent = Workspace
+
+local AuraParts = {}
+local function createAuraPart(i)
+    local p = Instance.new("Part")
+    p.Name = "ZAB_Aura_" .. i
+    p.Shape = Enum.PartType.Ball
+    p.Size = Vector3.new(0.4, 0.4, 0.4)
+    p.Anchored = true
+    p.CanCollide = false
+    p.CanQuery = false
+    p.CanTouch = false
+    p.Material = Enum.Material.Neon
+    p.Transparency = 1
+    p.Parent = AuraFolder
+    local light = Instance.new("PointLight", p)
+    light.Brightness = 4
+    light.Range = 8
+    return p
+end
+
+for i = 1, 24 do
+    AuraParts[i] = { part = createAuraPart(i) }
+end
+
+local auraAngle = 0
+RunService.Heartbeat:Connect(function(dt)
+    if not UI.Parent then return end
+    if not AuraState.Enabled then
+        for _, a in ipairs(AuraParts) do
+            if a.part.Parent and a.part.Transparency < 1 then
+                a.part.Transparency = 1
+            end
+        end
+        return
+    end
+    local char = LP.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local style = AURA_STYLES[AuraState.StyleIndex] or AURA_STYLES[1]
+    auraAngle = auraAngle + dt * AuraState.Speed
+    local count = #AuraParts
+    for i, a in ipairs(AuraParts) do
+        local p = a.part
+        if not p.Parent then
+            a.part = createAuraPart(i)
+            p = a.part
+        end
+        local ang = auraAngle + (i / count) * math.pi * 2
+        local y = math.sin((i / count) * math.pi * 2 + auraAngle * 1.3) * 1.5
+        local radius = AuraState.Radius
+        local pos = root.Position + Vector3.new(math.cos(ang) * radius, y, math.sin(ang) * radius)
+        p.CFrame = CFrame.new(pos)
+        p.Size = Vector3.new(0.4, 0.4, 0.4) * AuraState.Intensity
+        p.Transparency = math.clamp(0.6 - AuraState.Intensity * 0.15, 0.1, 0.7)
+        if style.name == "Rainbow" or style.name == "SvrRain" then
+            p.Color = Color3.fromHSV((auraAngle * 0.3 + i / count) % 1, 1, 1)
+        else
+            p.Color = style.col1:Lerp(style.col2, i / count)
+        end
+        p.Material = (style.name:find("Shadow") or style.name:find("Void"))
+            and Enum.Material.SmoothPlastic or Enum.Material.Neon
+        local light = p:FindFirstChildOfClass("PointLight")
+        if light then
+            light.Color = p.Color
+            light.Brightness = 2 * AuraState.Intensity
+        end
+    end
+end)
+
+-- ============================================
+-- 💡 LAMP SKY ENGINE
+-- ============================================
+local LAMP_COUNT = 15
+local LampFolder = Instance.new("Folder")
+LampFolder.Name = "ZABco0l_Lamps"
+LampFolder.Parent = Workspace
+
+local LampState = {
+    Active = false,
+    RotateSpeed = 2.0,
+    Radius = 30,
+    Height = 70,
+    Angle = 0,
+    RecallProgress = 0,
+    Mode = "SKY",
+}
+
+local Lamps = {}
+
+local function createLamp(index)
+    local model = Instance.new("Model")
+    model.Name = "ZAB_Lamp_" .. index
+
+    local bulb = Instance.new("Part")
+    bulb.Name = "Bulb"
+    bulb.Shape = Enum.PartType.Ball
+    bulb.Size = Vector3.new(4, 4, 4)
+    bulb.Material = Enum.Material.Neon
+    bulb.Color = Color3.fromRGB(255, 240, 200)
+    bulb.Anchored = true
+    bulb.CanCollide = false
+    bulb.CanQuery = false
+    bulb.CanTouch = false
+    bulb.CastShadow = false
+    bulb.Transparency = 1
+    bulb.Parent = model
+
+    local housing = Instance.new("Part")
+    housing.Name = "Housing"
+    housing.Shape = Enum.PartType.Cylinder
+    housing.Size = Vector3.new(0.6, 4.5, 4.5)
+    housing.Material = Enum.Material.Metal
+    housing.Color = Color3.fromRGB(50, 50, 55)
+    housing.Anchored = true
+    housing.CanCollide = false
+    housing.CanQuery = false
+    housing.CanTouch = false
+    housing.CastShadow = false
+    housing.Transparency = 1
+    housing.Parent = model
+
+    local light = Instance.new("PointLight", bulb)
+    light.Brightness = 8
+    light.Range = 40
+    light.Color = Color3.fromRGB(255, 240, 200)
+    light.Shadows = false
+    light.Enabled = false
+
+    model.PrimaryPart = bulb
+    model.Parent = LampFolder
+
+    return { model = model, bulb = bulb, housing = housing, light = light, index = index }
+end
+
+for i = 1, LAMP_COUNT do
+    Lamps[i] = createLamp(i)
+end
+
+local function updateLamp(lamp, centerPos, angle, radius, height, spreadY, visible)
+    local x = centerPos.X + math.cos(angle) * radius
+    local y = centerPos.Y + height + spreadY
+    local z = centerPos.Z + math.sin(angle) * radius
+
+    local bulbCF
+    if radius < 1 then
+        bulbCF = CFrame.new(centerPos.X, y, centerPos.Z)
+    else
+        bulbCF = CFrame.lookAt(Vector3.new(x, y, z), Vector3.new(centerPos.X, y, centerPos.Z))
+    end
+
+    lamp.bulb.CFrame = bulbCF
+    lamp.housing.CFrame = bulbCF * CFrame.Angles(0, 0, math.rad(90))
+
+    if visible then
+        lamp.bulb.Transparency = 0
+        lamp.housing.Transparency = 0
+        lamp.light.Enabled = true
+    else
+        lamp.bulb.Transparency = 1
+        lamp.housing.Transparency = 1
+        lamp.light.Enabled = false
+    end
+end
+
+RunService.Heartbeat:Connect(function(dt)
+    if not UI.Parent then return end
+    local char = LP.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+
+    if not LampState.Active then
+        for _, lamp in ipairs(Lamps) do
+            updateLamp(lamp, Vector3.zero, 0, 0, 0, 0, false)
+        end
+        return
+    end
+
+    if not root then return end
+
+    LampState.Angle = LampState.Angle + dt * LampState.RotateSpeed
+
+    local centerPos = root.Position
+    local mode = LampState.Mode
+
+    if mode == "RECALL" then
+        LampState.RecallProgress = math.min(LampState.RecallProgress + dt * 1.5, 1)
+        if LampState.RecallProgress >= 1 then LampState.Mode = "IDLE" end
+    elseif mode == "IDLE" then
+        LampState.RecallProgress = 1
+    elseif mode == "SKY" then
+        LampState.RecallProgress = math.max(LampState.RecallProgress - dt * 1.5, 0)
+    end
+
+    local rp = LampState.RecallProgress
+
+    for i, lamp in ipairs(Lamps) do
+        local ang = LampState.Angle + (i - 1) * (math.pi * 2 / LAMP_COUNT)
+        local spreadY = math.sin(LampState.Angle * 1.5 + i * 0.5) * 3
+
+        local targetRadius = LampState.Radius * (1 - rp)
+        local targetHeight = LampState.Height * (1 - rp)
+
+        if rp >= 1 then
+            targetRadius = 4 + (i % 3) * 1.5
+            targetHeight = 3 + (i % 2) * 1.5
+        end
+
+        local hue = (tick() * 0.15 + i * 0.05) % 1
+        local col = Color3.fromHSV(hue, 0.4, 1)
+        lamp.bulb.Color = col
+        lamp.light.Color = col
+        lamp.light.Brightness = 6 + math.sin(tick() * 4 + i) * 2
+
+        updateLamp(lamp, centerPos, ang, targetRadius, targetHeight, spreadY * (1 - rp), true)
+    end
+end)
+
+-- ============================================
+-- 🌐 SERVER ENGINE
+-- ============================================
+local ServerFolder = Instance.new("Folder")
+ServerFolder.Name = "ZABco0l_Server"
+ServerFolder.Parent = Workspace
+
+local ServerAuraParts = {}
+local serverAuraAngle = 0
+
+local function serverAuraUpdate(dt)
+    if not (ServerState.Enabled and ServerState.Aura) then
+        for _, p in ipairs(ServerAuraParts) do
+            if p and p.Parent then p.Transparency = 1 end
+        end
+        return
+    end
+    local char = LP.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    serverAuraAngle = serverAuraAngle + dt * 2
+    local style = AURA_STYLES[AuraState.StyleIndex] or AURA_STYLES[1]
+    for i = 1, 12 do
+        local p = ServerAuraParts[i]
+        if not p or not p.Parent then
+            p = Instance.new("Part")
+            p.Shape = Enum.PartType.Ball
+            p.Size = Vector3.new(0.5, 0.5, 0.5)
+            p.Anchored = false
+            p.CanCollide = false
+            p.CanQuery = false
+            p.CanTouch = false
+            p.Material = Enum.Material.Neon
+            p.Parent = ServerFolder
+            ServerAuraParts[i] = p
+            pcall(function() p:SetNetworkOwner(nil) end)
+        end
+        local ang = serverAuraAngle + (i / 12) * math.pi * 2
+        local radius = AuraState.Radius
+        local pos = root.Position + Vector3.new(
+            math.cos(ang) * radius, math.sin(ang * 1.3) * 1.2, math.sin(ang) * radius
+        )
+        p.Velocity = (pos - p.Position) * 15
+        if style.name:find("Rain") then
+            p.Color = Color3.fromHSV((serverAuraAngle * 0.3 + i / 12) % 1, 1, 1)
+        else
+            p.Color = style.col1:Lerp(style.col2, i / 12)
+        end
+        p.Transparency = 0.2
+    end
+end
+
+local function serverFling()
+    local now = tick()
+    if now - ServerState.LastFling < 0.1 then return end
+    ServerState.LastFling = now
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj.Anchored and not obj:IsDescendantOf(LP.Character) then
+            safe(function()
+                obj.Velocity = Vector3.new(
+                    math.random(-ServerState.FlingPower, ServerState.FlingPower),
+                    math.random(ServerState.FlingPower/2, ServerState.FlingPower),
+                    math.random(-ServerState.FlingPower, ServerState.FlingPower)
+                )
+            end)
+        end
+    end
+end
+
+local function serverRagdollAll()
+    local now = tick()
+    if now - ServerState.LastRagdoll < 0.5 then return end
+    ServerState.LastRagdoll = now
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                safe(function()
+                    hum.PlatformStand = true
+                    hum.Sit = true
+                    hum:ChangeState(Enum.HumanoidStateType.Physics)
+                end)
+            end
+        end
+    end
+end
+
+local function setupAntiReset()
+    if not ServerState.AntiReset then return end
+    local char = LP.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.Died:Connect(function()
+            if ServerState.AntiReset then
+                task.wait(0.1)
+                safe(function()
+                    if LP.Character then
+                        local nh = LP.Character:FindFirstChildOfClass("Humanoid")
+                        if nh then nh.Health = nh.MaxHealth end
+                    end
+                end)
+            end
+        end)
+    end
+end
+
+LP.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    setupAntiReset()
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    if plr == LP and ServerState.AutoRejoin then
+        safe(function() TeleportService:Teleport(game.PlaceId, LP) end)
+    end
+end)
+
+local serverAuraAccum = 0
+RunService.Heartbeat:Connect(function(dt)
+    if not UI.Parent then return end
+    if not ServerState.Enabled then return end
+    serverAuraAccum = serverAuraAccum + dt
+    if ServerState.Teleport and State and State.targetPart and State.targetPart.Parent then
+        local now = tick()
+        if now - ServerState.LastTP > 0.1 then
+            ServerState.LastTP = now
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LP and plr.Character then
+                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        safe(function()
+                            root.CFrame = State.targetPart.CFrame * CFrame.new(0, 0, -5)
+                                + Vector3.new(math.random(-5,5), 0, math.random(-5,5))
+                        end)
+                    end
+                end
+            end
+        end
+    end
+    if ServerState.Aura then
+        if serverAuraAccum >= 1 / ServerState.AuraRate then
+            serverAuraAccum = 0
+            serverAuraUpdate(dt)
+        end
+    end
+    if ServerState.Fling then serverFling() end
+    if ServerState.Ragdoll then serverRagdollAll() end
+end)
+
+-- ============================================
+-- 🎵 SOUND
+-- ============================================
+local SOUNDS = {
+    { id = "rbxassetid://94635984925376",  name = "Sound 1" },
+    { id = "rbxassetid://75793040119604",  name = "Sound 2" },
+    { id = "rbxassetid://89376395986302",  name = "Sound 3" },
+    { id = "rbxassetid://90089940136467",  name = "Sound 4" },
+    { id = "rbxassetid://133929868597059", name = "Sound 5" },
+    { id = "rbxassetid://107553113067574", name = "Sound 6" },
+    { id = "rbxassetid://13886350965708",  name = "Sound 7" },
+    { id = "rbxassetid://126576350082922", name = "Sound 8" },
+    { id = "rbxassetid://109252339723127", name = "Sound 9" },
+    { id = "rbxassetid://74491772074205",  name = "Sound 10" },
+    { id = "rbxassetid://137287856848151", name = "Sound 11" },
+}
+
+local SoundFolder = Instance.new("Folder")
+SoundFolder.Name = "ZABr0om_Sounds"
+SoundFolder.Parent = Workspace
+
+local activeSounds = {}
+local lastClick = 0
+local stopSound
+
+safe(function()
+    local assets = {}
+    for _, s in ipairs(SOUNDS) do table.insert(assets, s.id) end
+    task.spawn(function()
+        pcall(function() ContentProvider:PreloadAsync(assets) end)
+    end)
+end)
+
+local function playSound(index)
+    local now = tick()
+    if now - lastClick < 0.15 then return end
+    lastClick = now
+    local data = SOUNDS[index]
+    if not data then return end
+    if activeSounds[index] then stopSound(index); return end
+    local char = LP.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local speaker = Instance.new("Part")
+    speaker.Name = "ZAB_Speaker_" .. index
+    speaker.Anchored = true
+    speaker.CanCollide = false
+    speaker.CanQuery = false
+    speaker.CanTouch = false
+    speaker.Transparency = 1
+    speaker.Size = Vector3.new(1, 1, 1)
+    speaker.CFrame = root and root.CFrame or CFrame.new(0, 5, 0)
+    speaker.Parent = SoundFolder
+
+    local sound = Instance.new("Sound")
+    sound.SoundId = data.id
+    sound.Volume = 3
+    sound.PlaybackSpeed = 1
+    sound.RollOffMaxDistance = 500
+    sound.RollOffMinDistance = 5
+    sound.RollOffMode = Enum.RollOffMode.InverseTapered
+    sound.Looped = false
+    sound.Parent = speaker
+
+    local conn
+    if root then
+        conn = RunService.Heartbeat:Connect(function()
+            if root and root.Parent and speaker and speaker.Parent then
+                speaker.CFrame = root.CFrame
+            end
+        end)
+    end
+
+    local backup = Instance.new("Sound")
+    backup.SoundId = data.id
+    backup.Volume = 3
+    backup.Parent = SoundService
+
+    activeSounds[index] = {speaker = speaker, sound = sound, conn = conn, backup = backup}
+    sound:Play()
+    sound.Ended:Connect(function()
+        if activeSounds[index] and activeSounds[index].sound == sound then
+            stopSound(index)
+        end
+    end)
+    safe(function() backup:Play() end)
+    backup.Ended:Connect(function()
+        if backup and backup.Parent then backup:Destroy() end
+    end)
+end
+
+stopSound = function(index)
+    local entry = activeSounds[index]
+    if not entry then return end
+    activeSounds[index] = nil
+    safe(function() if entry.sound then entry.sound:Stop(); entry.sound:Destroy() end end)
+    safe(function() if entry.conn then entry.conn:Disconnect() end end)
+    safe(function() if entry.speaker then entry.speaker:Destroy() end end)
+    safe(function() if entry.backup then entry.backup:Stop(); entry.backup:Destroy() end end)
+end
+
+local function stopAllSounds()
+    local keys = {}
+    for k in pairs(activeSounds) do table.insert(keys, k) end
+    for _, i in ipairs(keys) do stopSound(i) end
+end
+
+local soundButtons = {}
+for i, data in ipairs(SOUNDS) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, SZ(34))
+    btn.BackgroundColor3 = Color3.fromRGB(30, 24, 44)
+    btn.Text = "▶  " .. string.format("%02d", i) .. "   " .. data.name
+    btn.TextColor3 = THEME.Text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = SZ(14)
+    btn.BorderSizePixel = 0
+    btn.AutoButtonColor = false
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.LayoutOrder = i
+    btn.ZIndex = 10
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, SZ(8))
+    local pad = Instance.new("UIPadding", btn)
+    pad.PaddingLeft = UDim.new(0, SZ(14))
+    local strk = Instance.new("UIStroke", btn)
+    strk.Thickness = 1.5
+    strk.Color = THEME.Border
+    btn.Parent = SoundScroll
+    soundButtons[i] = {btn = btn, strk = strk, playing = false}
+
+    btn.MouseButton1Click:Connect(function()
+        local s = soundButtons[i]
+        if s.playing then
+            stopSound(i)
+            s.playing = false
+            s.btn.Text = "▶  " .. string.format("%02d", i) .. "   " .. data.name
+            s.btn.TextColor3 = THEME.Text
+            s.strk.Color = THEME.Border
+        else
+            playSound(i)
+            if activeSounds[i] then
+                s.playing = true
+                s.btn.Text = "⏹  " .. string.format("%02d", i) .. "   " .. data.name
+                s.btn.TextColor3 = THEME.Gold
+                s.strk.Color = THEME.Gold
+            end
+        end
+    end)
+end
+
+local CF = Instance.new("Frame")
+CF.Size = UDim2.new(1, 0, 0, SZ(34))
+CF.BackgroundTransparency = 1
+CF.LayoutOrder = 100
+CF.ZIndex = 5
+CF.Parent = SoundScroll
+
+local PlayAllBtn = Instance.new("TextButton", CF)
+PlayAllBtn.Size = UDim2.new(0.5, -SZ(3), 1, 0)
+PlayAllBtn.BackgroundColor3 = Color3.fromRGB(24, 60, 36)
+PlayAllBtn.Text = "▶ Play All"
+PlayAllBtn.TextColor3 = THEME.Green
+PlayAllBtn.Font = Enum.Font.GothamBold
+PlayAllBtn.TextSize = SZ(14)
+PlayAllBtn.BorderSizePixel = 0
+PlayAllBtn.AutoButtonColor = false
+PlayAllBtn.ZIndex = 10
+Instance.new("UICorner", PlayAllBtn).CornerRadius = UDim.new(0, SZ(8))
+
+local StopAllBtn = Instance.new("TextButton", CF)
+StopAllBtn.Size = UDim2.new(0.5, -SZ(3), 1, 0)
+StopAllBtn.Position = UDim2.new(0.5, SZ(3), 0, 0)
+StopAllBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 26)
+StopAllBtn.Text = "⏹ Stop All"
+StopAllBtn.TextColor3 = THEME.Red
+StopAllBtn.Font = Enum.Font.GothamBold
+StopAllBtn.TextSize = SZ(14)
+StopAllBtn.BorderSizePixel = 0
+StopAllBtn.AutoButtonColor = false
+StopAllBtn.ZIndex = 10
+Instance.new("UICorner", StopAllBtn).CornerRadius = UDim.new(0, SZ(8))
+
+PlayAllBtn.MouseButton1Click:Connect(function()
+    stopAllSounds()
+    task.spawn(function()
+        for i = 1, #SOUNDS do
+            if not UI.Parent then break end
+            playSound(i)
+            task.wait(1)
+        end
+    end)
+    for i = 1, #SOUNDS do
+        local s = soundButtons[i]
+        if s then
+            s.playing = true
+            s.btn.Text = "⏹  " .. string.format("%02d", i) .. "   " .. SOUNDS[i].name
+            s.btn.TextColor3 = THEME.Gold
+            s.strk.Color = THEME.Gold
+        end
+    end
+end)
+
+StopAllBtn.MouseButton1Click:Connect(function()
+    stopAllSounds()
+    for i = 1, #SOUNDS do
+        local s = soundButtons[i]
+        if s then
+            s.playing = false
+            s.btn.Text = "▶  " .. string.format("%02d", i) .. "   " .. SOUNDS[i].name
+            s.btn.TextColor3 = THEME.Text
+            s.strk.Color = THEME.Border
+        end
+    end
+end)
+
+local wavePhase = 0
+RunService.Heartbeat:Connect(function(dt)
+    if not UI.Parent then return end
+    wavePhase = wavePhase + dt * 4
+    local active = false
+    for _ in pairs(activeSounds) do active = true; break end
+    for i, bar in ipairs(waveBars) do
+        local base = active and 0.2 or 0.05
+        local v = base + math.abs(math.sin(wavePhase + i * 0.4)) * (active and 0.8 or 0.1)
+        bar.Size = UDim2.new(0, SZ(4), v, 0)
+        bar.BackgroundColor3 = active
+            and Color3.fromHSV((wavePhase * 0.1 + i * 0.03) % 1, 0.8, 1)
+            or THEME.TextDim
+    end
+end)
+
+-- ============================================
+-- ⚙️ CORE STATE
+-- ============================================
+local State = {
+    targetPlayer = nil, targetPart = nil,
+    isActive = false, allMode = false,
+    orbitMode = false, orbitAngle = 0,
+    espEnabled = false, minimized = false,
+    renderConn = nil, scanAccum = 0,
+    tweenBusy = false,
+}
+
+local ORBIT_RADIUS = 9
+local ORBIT_SPEED = 2.5
+local SCAN_INTERVAL = 1.0
+local ANCHOR_DEFAULT = CFrame.new(0, 500, 0)
+
+if not getgenv().ZABr0om_Net then
+    getgenv().ZABr0om_Net = {Parts = {}, Force = Vector3.new(10000, 10000, 10000)}
+end
+
+task.spawn(function()
+    while UI.Parent do
+        safe(function()
+            if sethiddenproperty then
+                sethiddenproperty(LP, "SimulationRadius", math.huge)
+                sethiddenproperty(LP, "MaxSimulationRadius", math.huge)
+            end
+        end)
+        task.wait(0.5)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not UI.Parent then return end
+    if State.orbitMode then return end
+    safe(function()
+        local parts = getgenv().ZABr0om_Net.Parts
+        for i = #parts, 1, -1 do
+            local obj = parts[i]
+            if not obj or not obj.Parent or not obj:IsDescendantOf(Workspace) then
+                table.remove(parts, i)
+            else
+                obj.Velocity = getgenv().ZABr0om_Net.Force
+            end
+        end
+    end)
+end)
+
+task.spawn(function()
+    while UI.Parent do
+        task.wait(5)
+        safe(function()
+            local parts = getgenv().ZABr0om_Net.Parts
+            for i = #parts, 1, -1 do
+                local p = parts[i]
+                if not p or not p.Parent or not p:IsDescendantOf(Workspace) then
+                    table.remove(parts, i)
+                end
+            end
+        end)
+    end
+end)
+
+local AnchorFolder = Instance.new("Folder")
+AnchorFolder.Name = "ZABr0om_Anchor"
+AnchorFolder.Parent = Workspace
+
+local AnchorPart = Instance.new("Part")
+AnchorPart.Name = "AnchorPart"
+AnchorPart.Anchored = true
+AnchorPart.CanCollide = false
+AnchorPart.CanQuery = false
+AnchorPart.CanTouch = false
+AnchorPart.Transparency = 1
+AnchorPart.Size = Vector3.new(1, 1, 1)
+AnchorPart.CFrame = ANCHOR_DEFAULT
+AnchorPart.Parent = AnchorFolder
+
+local AnchorAttach = Instance.new("Attachment", AnchorPart)
+AnchorAttach.Name = "AnchorAttach"
+
+local function isValidTarget(plr)
+    return plr and plr ~= LP and plr.Parent == Players
+        and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+end
+local function getRoot(plr)
+    if not plr or not plr.Character then return nil end
+    return plr.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function clearAllParts()
+    safe(function()
+        local parts = getgenv().ZABr0om_Net.Parts
+        for i = #parts, 1, -1 do
+            local p = parts[i]
+            if p then
+                safe(function()
+                    local a = p:FindFirstChild("ZB_Align"); if a then a:Destroy() end
+                    local o = p:FindFirstChild("ZB_Orient"); if o then o:Destroy() end
+                    local at = p:FindFirstChild("ZB_Att"); if at then at:Destroy() end
+                end)
+            end
+            table.remove(parts, i)
+        end
+    end)
+end
+
+LP.CharacterRemoving:Connect(clearAllParts)
+LP.CharacterAdded:Connect(function()
+    clearAllParts()
+    safe(function() AnchorPart.CFrame = ANCHOR_DEFAULT end)
+end)
+
+local function Manipulate(v)
+    if not v or not v.Parent then return end
+    if not v:IsA("BasePart") then return end
+    if v.Anchored then return end
+    if v:IsDescendantOf(LP.Character) then return end
+    local parent = v.Parent
+    if parent and parent:FindFirstChildOfClass("Humanoid") then return end
+    if parent and parent:IsA("Tool") then return end
+    if v.Name == "Handle" or v.Name == "AnchorPart" then return end
+
+    safe(function()
+        v.CanCollide = false
+        pcall(function() v:SetNetworkOwner(LP) end)
+        if not table.find(getgenv().ZABr0om_Net.Parts, v) then
+            table.insert(getgenv().ZABr0om_Net.Parts, v)
+        end
+        local att = v:FindFirstChild("ZB_Att")
+        if not att then
+            att = Instance.new("Attachment")
+            att.Name = "ZB_Att"
+            att.Parent = v
+        end
+        local orient = v:FindFirstChild("ZB_Orient")
+        if not orient then
+            orient = Instance.new("AlignOrientation")
+            orient.Name = "ZB_Orient"
+            orient.Parent = v
+        end
+        orient.Attachment0 = att
+        orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
+        orient.MaxTorque = math.huge
+        orient.Responsiveness = 100
+        local align = v:FindFirstChild("ZB_Align")
+        if not align then
+            align = Instance.new("AlignPosition")
+            align.Name = "ZB_Align"
+            align.Parent = v
+        end
+        align.Attachment0 = att
+        align.Attachment1 = AnchorAttach
+        align.MaxForce = math.huge
+        align.MaxVelocity = math.huge
+        align.Responsiveness = 500
+        align.ApplyAtCenterOfMass = false
+        align.Enabled = not State.orbitMode
+    end)
+end
+
+-- ESP
+local function applyESPToChar(plr, char)
+    if not State.espEnabled or plr == LP or not char then return end
+    if char:FindFirstChild("ZAB_ESP") then return end
+    safe(function()
+        local teamColor = (plr.Team and plr.Team.TeamColor.Color) or Color3.fromRGB(255, 60, 100)
+        local hl = Instance.new("Highlight")
+        hl.Name = "ZAB_ESP"
+        hl.FillColor = teamColor
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.6
+        hl.OutlineTransparency = 0
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Adornee = char
+        hl.Parent = char
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "ZAB_ESP_Name"
+        bb.Size = UDim2.new(0, 280, 0, 70)
+        bb.StudsOffset = Vector3.new(0, 3.5, 0)
+        bb.AlwaysOnTop = true
+        bb.Parent = root
+        local nameLbl = Instance.new("TextLabel")
+        nameLbl.Size = UDim2.new(1, 0, 0, 20)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Text = plr.Name
+        nameLbl.TextColor3 = teamColor
+        nameLbl.TextStrokeTransparency = 0
+        nameLbl.TextStrokeColor3 = Color3.new(0, 0, 0)
+        nameLbl.Font = Enum.Font.GothamBold
+        nameLbl.TextSize = 16
+        nameLbl.Parent = bb
+        local hpBg = Instance.new("Frame")
+        hpBg.Name = "HPBar"
+        hpBg.Size = UDim2.new(0.7, 0, 0, 7)
+        hpBg.Position = UDim2.new(0.15, 0, 0, 22)
+        hpBg.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+        hpBg.BorderSizePixel = 0
+        hpBg.Parent = bb
+        Instance.new("UICorner", hpBg).CornerRadius = UDim.new(1, 0)
+        local hpFill = Instance.new("Frame")
+        hpFill.Name = "Fill"
+        hpFill.Size = UDim2.new(1, 0, 1, 0)
+        hpFill.BackgroundColor3 = Color3.fromRGB(80, 230, 140)
+        hpFill.BorderSizePixel = 0
+        hpFill.Parent = hpBg
+        Instance.new("UICorner", hpFill).CornerRadius = UDim.new(1, 0)
+        local distLbl = Instance.new("TextLabel")
+        distLbl.Name = "DistLabel"
+        distLbl.Size = UDim2.new(1, 0, 0, 16)
+        distLbl.Position = UDim2.new(0, 0, 0, 32)
+        distLbl.BackgroundTransparency = 1
+        distLbl.Text = ""
+        distLbl.TextColor3 = Color3.fromRGB(255, 230, 240)
+        distLbl.TextStrokeTransparency = 0
+        distLbl.TextStrokeColor3 = Color3.new(0, 0, 0)
+        distLbl.Font = Enum.Font.GothamMedium
+        distLbl.TextSize = 13
+        distLbl.Parent = bb
+    end)
+end
+
+local function removeESPFromChar(char)
+    if not char then return end
+    safe(function()
+        local hl = char:FindFirstChild("ZAB_ESP")
+        if hl then hl:Destroy() end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            local bb = root:FindFirstChild("ZAB_ESP_Name")
+            if bb then bb:Destroy() end
+        end
+    end)
+end
+
+local function clearAllESP()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character then removeESPFromChar(plr.Character) end
+    end
+end
+
+local function refreshESP()
+    if not State.espEnabled then return end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character then
+            applyESPToChar(plr, plr.Character)
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function(char)
+        task.wait(0.3)
+        if State.espEnabled then applyESPToChar(plr, char) end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    safe(function()
+        if plr.Character then removeESPFromChar(plr.Character) end
+    end)
+    if State.targetPlayer == plr then
+        State.targetPlayer = nil
+        State.targetPart = nil
+    end
+end)
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    plr.CharacterAdded:Connect(function(char)
+        task.wait(0.3)
+        if State.espEnabled then applyESPToChar(plr, char) end
+    end)
+end
+
+task.spawn(function()
+    while UI.Parent do
+        task.wait(0.15)
+        if not State.espEnabled then continue end
+        safe(function()
+            local myRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LP and plr.Character then
+                    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if hum and root then
+                        local bb = root:FindFirstChild("ZAB_ESP_Name")
+                        if bb then
+                            local hpBg = bb:FindFirstChild("HPBar")
+                            if hpBg then
+                                local fill = hpBg:FindFirstChild("Fill")
+                                if fill then
+                                    local pct = hum.Health / math.max(hum.MaxHealth, 1)
+                                    fill.Size = UDim2.new(pct, 0, 1, 0)
+                                    fill.BackgroundColor3 = Color3.fromHSV(pct * 0.33, 1, 1)
+                                end
+                            end
+                            local distLbl = bb:FindFirstChild("DistLabel")
+                            if distLbl and myRoot then
+                                local d = (root.Position - myRoot.Position).Magnitude
+                                distLbl.Text = string.format("[%d studs]", math.floor(d))
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ============================================
+-- 🔥 ACTIVATE
+-- ============================================
+local function Deactivate()
+    State.isActive = false
+    ActionBtn.Text = "⚡  A C T I V A T E"
+    ActionBtn.TextColor3 = THEME.TextDim
+    ActionGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(36, 30, 56)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 18, 36)),
+    })
+    LivePill.BackgroundColor3 = Color3.fromRGB(40, 24, 24)
+    LiveDot.BackgroundColor3 = THEME.Red
+    LiveText.Text = "READY"
+    LiveText.TextColor3 = THEME.Red
+    if State.renderConn then
+        safe(function() State.renderConn:Disconnect() end)
+        State.renderConn = nil
+    end
+    safe(function()
+        for _, p in ipairs(getgenv().ZABr0om_Net.Parts) do
+            if p and p.Parent then
+                local a = p:FindFirstChild("ZB_Align")
+                if a then a.Enabled = false end
+            end
+        end
+    end)
+    safe(function() AnchorPart.CFrame = ANCHOR_DEFAULT end)
+    setStatus("⭕ Deactivated", THEME.Red)
+end
+
+local function Activate()
+    if State.isActive then return end
+    if not State.targetPlayer and not State.orbitMode then
+        setStatus("⚠ Pilih target dulu!", THEME.Gold)
+        return
+    end
+    if State.targetPlayer and not isValidTarget(State.targetPlayer) and not State.orbitMode then
+        setStatus("❌ Target tidak valid", THEME.Red)
+        return
+    end
+    State.isActive = true
+    State.scanAccum = 0
+    ActionBtn.Text = "🔴  D E A C T I V A T E"
+    ActionBtn.TextColor3 = Color3.fromRGB(255, 240, 240)
+    ActionGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 40, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 20, 40)),
+    })
+    LivePill.BackgroundColor3 = Color3.fromRGB(24, 40, 28)
+    LiveDot.BackgroundColor3 = THEME.Green
+    LiveText.Text = "ACTIVE"
+    LiveText.TextColor3 = THEME.Green
+    setStatus(State.orbitMode and "🌀 Orbit Mode" or "🔥 Active", THEME.Green)
+    if not State.orbitMode then
+        local root = getRoot(State.targetPlayer)
+        if root then
+            State.targetPart = root
+            safe(function() AnchorPart.CFrame = CFrame.new(root.Position) end)
+        end
+    end
+    State.renderConn = RunService.RenderStepped:Connect(function(dt)
+        if not State.isActive then return end
+        if State.orbitMode then
+            local char = LP.Character
+            if not char then return end
+            local lpRoot = char:FindFirstChild("HumanoidRootPart")
+            if not lpRoot then return end
+            local center = lpRoot.Position
+            local parts = getgenv().ZABr0om_Net.Parts
+            local count = #parts
+            if count == 0 then return end
+            State.orbitAngle = State.orbitAngle + dt * ORBIT_SPEED
+            for i = count, 1, -1 do
+                local part = parts[i]
+                if not part or not part.Parent then
+                    table.remove(parts, i)
+                else
+                    local align = part:FindFirstChild("ZB_Align")
+                    if align and align.Enabled then align.Enabled = false end
+                    local ang = State.orbitAngle + (i * (math.pi * 2 / math.max(count, 1)))
+                    local targetPos = center + Vector3.new(
+                        math.cos(ang) * ORBIT_RADIUS, 0, math.sin(ang) * ORBIT_RADIUS
+                    )
+                    part.Velocity = (targetPos - part.Position) * 8
+                end
+            end
+            return
+        end
+        if State.targetPlayer and State.targetPlayer.Character then
+            local r = State.targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if r then State.targetPart = r end
+        end
+        if State.targetPart and State.targetPart.Parent then
+            safe(function()
+                local newPos = AnchorPart.Position:Lerp(State.targetPart.Position, 0.3)
+                AnchorPart.CFrame = CFrame.new(newPos)
+            end)
+        end
+    end)
+end
+
+RunService.Heartbeat:Connect(function(dt)
+    if not State.isActive or not UI.Parent then return end
+    State.scanAccum = State.scanAccum + dt
+    if State.scanAccum < SCAN_INTERVAL then return end
+    State.scanAccum = 0
+    task.spawn(function()
+        safe(function()
+            local count = 0
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if not State.isActive then break end
+                if obj:IsA("BasePart") and not obj.Anchored then
+                    Manipulate(obj)
+                    count = count + 1
+                end
+            end
+            if State.isActive and count > 0 then
+                if State.orbitMode then
+                    setStatus("🌀 Orbit - " .. #getgenv().ZABr0om_Net.Parts .. " parts", THEME.Cyan)
+                else
+                    setStatus("🔥 Active - " .. count .. " parts", THEME.Green)
+                end
+            end
+        end)
+    end)
+end)
+
+-- ============================================
+-- 🎛 EVENTS
+-- ============================================
+OrbitBtn.MouseButton1Click:Connect(function()
+    State.orbitMode = not State.orbitMode
+    if State.orbitMode then
+        OrbitBtn.Text = "🌀  ORBIT ✓"
+        OrbitBtn.TextColor3 = THEME.Cyan
+        OrbitStroke.Color = THEME.Cyan
+        for _, p in ipairs(getgenv().ZABr0om_Net.Parts) do
+            local a = p:FindFirstChild("ZB_Align")
+            if a then a.Enabled = false end
+        end
+        if not State.isActive then Activate() end
+        setStatus("🌀 Orbit ON", THEME.Cyan)
+    else
+        OrbitBtn.Text = "🌀  ORBIT"
+        OrbitBtn.TextColor3 = THEME.TextDim
+        OrbitStroke.Color = THEME.Border
+        setStatus("⭕ Orbit OFF", THEME.TextDim)
+    end
+end)
+
+ESPBtn.MouseButton1Click:Connect(function()
+    State.espEnabled = not State.espEnabled
+    if State.espEnabled then
+        ESPBtn.Text = "👁  ESP ✓"
+        ESPBtn.TextColor3 = THEME.Purple
+        ESPStroke.Color = THEME.Purple
+        refreshESP()
+        setStatus("👁 ESP ON", THEME.Purple)
+    else
+        ESPBtn.Text = "👁  ESP"
+        ESPBtn.TextColor3 = THEME.TextDim
+        ESPStroke.Color = THEME.Border
+        clearAllESP()
+        setStatus("👁 ESP OFF", THEME.TextDim)
+    end
+end)
+
+ViewBtn.MouseButton1Click:Connect(function()
+    if not State.targetPlayer then setStatus("⚠ Pilih target!", THEME.Gold); return end
+    local char = State.targetPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        workspace.CurrentCamera.CameraSubject = hum
+        setStatus("👁 Viewing: " .. State.targetPlayer.Name, THEME.Cyan)
+    end
+end)
+
+TpBtn.MouseButton1Click:Connect(function()
+    if not State.targetPlayer then setStatus("⚠ Pilih target!", THEME.Gold); return end
+    local char = State.targetPlayer.Character
+    local myChar = LP.Character
+    if not char or not myChar then return end
+    local tRoot = char:FindFirstChild("HumanoidRootPart")
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if tRoot and myRoot then
+        myRoot.CFrame = tRoot.CFrame * CFrame.new(0, 0, -3)
+        setStatus("⚡ TP to " .. State.targetPlayer.Name, THEME.Green)
+    end
+end)
+
+-- LAMP HANDLERS
+LampToggle.MouseButton1Click:Connect(function()
+    LampState.Active = not LampState.Active
+    if LampState.Active then
+        LampToggle.Text = "ON"
+        LampToggle.BackgroundColor3 = Color3.fromRGB(60, 50, 20)
+        LampToggle.TextColor3 = THEME.LampGold
+        LampState.Mode = "SKY"
+        LampState.RecallProgress = 0
+        setStatus("💡 Lamp Sky ON · 15 lamps", THEME.LampGold)
+    else
+        LampToggle.Text = "OFF"
+        LampToggle.BackgroundColor3 = Color3.fromRGB(40, 30, 20)
+        LampToggle.TextColor3 = Color3.fromRGB(255, 180, 100)
+        LampState.Mode = "SKY"
+        LampState.RecallProgress = 0
+        setStatus("💡 Lamp Sky OFF", THEME.TextDim)
+    end
+end)
+
+SummonBtn.MouseButton1Click:Connect(function()
+    LampState.Mode = "SKY"
+    setStatus("☁ Lamps → SKY", Color3.fromRGB(200, 255, 150))
+end)
+
+RecallBtn.MouseButton1Click:Connect(function()
+    LampState.Mode = "RECALL"
+    setStatus("🎯 Lamps → RECALL to me", Color3.fromRGB(255, 200, 255))
+end)
+
+SpinDownBtn.MouseButton1Click:Connect(function()
+    LampState.RotateSpeed = math.max(0.3, LampState.RotateSpeed - 0.5)
+    SpinLabel.Text = string.format("SPD: %.1f", LampState.RotateSpeed)
+end)
+
+SpinUpBtn.MouseButton1Click:Connect(function()
+    LampState.RotateSpeed = math.min(10, LampState.RotateSpeed + 0.5)
+    SpinLabel.Text = string.format("SPD: %.1f", LampState.RotateSpeed)
+end)
+
+RadiusBtn.MouseButton1Click:Connect(function()
+    LampState.Radius = LampState.Radius + 10
+    if LampState.Radius > 80 then LampState.Radius = 15 end
+    RadiusBtn.Text = "RAD: " .. LampState.Radius
+end)
+
+HeightBtn.MouseButton1Click:Connect(function()
+    LampState.Height = LampState.Height + 20
+    if LampState.Height > 150 then LampState.Height = 30 end
+    HeightBtn.Text = "HGT: " .. LampState.Height
+end)
+
+-- AURA HANDLERS
+local function updateStyleLabel()
+    local s = AURA_STYLES[AuraState.StyleIndex]
+    StyleLabel.Text = s.icon .. "  " .. s.name:upper() .. "  [T" .. s.tier .. "]"
+    StyleLabel.TextColor3 = s.col1
+end
+updateStyleLabel()
+
+StylePrev.MouseButton1Click:Connect(function()
+    AuraState.StyleIndex = AuraState.StyleIndex - 1
+    if AuraState.StyleIndex < 1 then AuraState.StyleIndex = #AURA_STYLES end
+    updateStyleLabel()
+end)
+
+StyleNext.MouseButton1Click:Connect(function()
+    AuraState.StyleIndex = AuraState.StyleIndex + 1
+    if AuraState.StyleIndex > #AURA_STYLES then AuraState.StyleIndex = 1 end
+    updateStyleLabel()
+end)
+
+AuraToggle.MouseButton1Click:Connect(function()
+    AuraState.Enabled = not AuraState.Enabled
+    if AuraState.Enabled then
+        AuraToggle.Text = "ON"
+        AuraToggle.BackgroundColor3 = Color3.fromRGB(24, 50, 30)
+        AuraToggle.TextColor3 = THEME.Green
+        setStatus("✨ Aura ON · " .. AURA_STYLES[AuraState.StyleIndex].name, THEME.Gold)
+    else
+        AuraToggle.Text = "OFF"
+        AuraToggle.BackgroundColor3 = Color3.fromRGB(40, 24, 24)
+        AuraToggle.TextColor3 = THEME.Red
+        setStatus("✨ Aura OFF", THEME.TextDim)
+    end
+end)
+
+ServerToggle.MouseButton1Click:Connect(function()
+    ServerState.Enabled = not ServerState.Enabled
+    if ServerState.Enabled then
+        ServerToggle.Text = "ON"
+        ServerToggle.BackgroundColor3 = Color3.fromRGB(20, 50, 30)
+        ServerToggle.TextColor3 = THEME.Green
+        setStatus("🌐 Server-Side ON", THEME.Pink)
+    else
+        ServerToggle.Text = "OFF"
+        ServerToggle.BackgroundColor3 = Color3.fromRGB(40, 20, 30)
+        ServerToggle.TextColor3 = Color3.fromRGB(255, 100, 120)
+        setStatus("🌐 Server-Side OFF", THEME.TextDim)
+    end
+end)
+
+task.spawn(function()
+    while UI.Parent do
+        task.wait(0.1)
+        safe(function()
+            AuraState.Intensity = tonumber(IntensityVal.Text) or 1.0
+            AuraState.Radius = tonumber(RadiusVal.Text) or 3.5
+            AuraState.Speed = tonumber(SpeedVal.Text) or 2.0
+        end)
+    end
+end)
+
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if UIS:GetFocusedTextBox() then return end
+    if input.KeyCode == Enum.KeyCode.Q then
+        if State.isActive then Deactivate() else Activate() end
+    end
+end)
+
+ActionBtn.MouseButton1Click:Connect(function()
+    if State.isActive then Deactivate() else Activate() end
+end)
+
+InputBox.FocusLost:Connect(function(enter)
+    if not enter then return end
+    local query = InputBox.Text:lower()
+    if query == "" then setStatus("⚠ Masukkan nama", THEME.Gold); return end
+    local exact, starts, contains = nil, nil, nil
+    local closest, closestDist = nil, math.huge
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local n, d = p.Name:lower(), p.DisplayName:lower()
+            if n == query or d == query then exact = p; break
+            elseif not starts and (n:sub(1, #query) == query or d:sub(1, #query) == query) then starts = p
+            elseif not contains and (n:find(query, 1, true) or d:find(query, 1, true)) then contains = p
+            else
+                local dd = math.min(lev(query, n), lev(query, d))
+                if dd < closestDist then closestDist = dd; closest = p end
+            end
+        end
+    end
+    local found = exact or starts or contains or (closestDist <= 3 and closest)
+    if found then
+        InputBox.Text = found.Name
+        State.targetPlayer = found
+        State.targetPart = getRoot(found)
+        setStatus("🎯 Target: " .. found.Name, THEME.Cyan)
+    else
+        InputBox.Text = ""
+        setStatus("❌ Tidak ditemukan", THEME.Red)
+    end
+end)
+
+local allLoopRunning = false
+local lastAllTarget = nil
+
+ModeBtn.MouseButton1Click:Connect(function()
+    if allLoopRunning then
+        allLoopRunning = false
+        State.allMode = false
+        State.targetPlayer = nil
+        State.targetPart = nil
+        lastAllTarget = nil
+        ModeBtn.Text = "◈  SINGLE TARGET"
+        Deactivate()
+        setStatus("⭕ Mode: Single", THEME.TextDim)
+    else
+        allLoopRunning = true
+        State.allMode = true
+        ModeBtn.Text = "◈  ALL PLAYERS"
+        setStatus("⚔️ Mode: All", THEME.Red)
+        task.spawn(function()
+            while allLoopRunning do
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if not allLoopRunning then break end
+                    if isValidTarget(plr) and lastAllTarget ~= plr then
+                        State.targetPlayer = plr
+                        State.targetPart = getRoot(plr)
+                        lastAllTarget = plr
+                        if not State.isActive then Activate() end
+                        task.wait(1.0)
+                    end
+                end
+                task.wait(0.1)
+            end
+            Deactivate()
+            State.targetPlayer = nil
+            State.targetPart = nil
+            lastAllTarget = nil
+        end)
+    end
+end)
+
+local origSize = UDim2.new(0, PANEL_W, 0, PANEL_H)
+MinBtn.MouseButton1Click:Connect(function()
+    if State.tweenBusy then return end
+    State.tweenBusy = true
+    State.minimized = not State.minimized
+    TweenService:Create(Panel, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+        Size = State.minimized and UDim2.new(0, PANEL_W, 0, SZ(68)) or origSize
+    }):Play()
+    local hideList = {ModeRow, ToggleRow, SearchWrap, ActionBtn, ActionRow, LampPanel, AuraPanel, ServerPanel, SoundDeck, StatusBar}
+    if State.minimized then
+        for _, el in ipairs(hideList) do el.Visible = false end
+    else
+        task.delay(0.15, function()
+            for _, el in ipairs(hideList) do el.Visible = true end
+        end)
+    end
+    task.delay(0.3, function() State.tweenBusy = false end)
+end)
+
+ExitBtn.MouseButton1Click:Connect(function()
+    Deactivate()
+    allLoopRunning = false
+    State.allMode = false
+    State.orbitMode = false
+    State.espEnabled = false
+    AuraState.Enabled = false
+    ServerState.Enabled = false
+    LampState.Active = false
+    clearAllESP()
+    stopAllSounds()
+    for _, f in ipairs({AnchorFolder, AuraFolder, SoundFolder, ServerFolder, LampFolder}) do
+        safe(function() if f then f:Destroy() end end)
+    end
+    if State.renderConn then safe(function() State.renderConn:Disconnect() end) end
+    safe(function() UI:Destroy() end)
+end)
+
+RunService.Heartbeat:Connect(function()
+    local char = LP.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum and hum.Sit then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Velocity = Vector3.zero
+            hrp.RotVelocity = Vector3.zero
+        end
+    end
+end)
+
+Panel.Size = UDim2.new(0, 0, 0, 0)
+Panel.BackgroundTransparency = 1
+TweenService:Create(Panel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = origSize,
+    BackgroundTransparency = 0
+}):Play()
+
+setStatus("✅ v" .. VERSION .. " · " .. AUTHOR .. " · 💡", THEME.LampGold)
+
+print(string.format([[
+╔══════════════════════════════════════╗
+║  ⚡ ZABr0om v%s - LAMP SKY ║
+║  By %s                        ║
+╠══════════════════════════════════════╣
+║  ✅ Panel: %dx%d (auto-scale)      ║
+║  💡 15 Sky Lamps + Recall            ║
+║  ✨ 36 Aura Styles                   ║
+║  🌐 Server-Side 9 Features           ║
+║  🎵 Sound Deck + Waveform            ║
+║  👁 ESP + HP Bar + Team              ║
+╚══════════════════════════════════════╝
+]], VERSION, AUTHOR, PANEL_W, PANEL_H))
